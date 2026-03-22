@@ -4,12 +4,12 @@ export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
   const curSymbol = isUSD ? 'USD' : 'KES';
   
   const bank = {
-    bankName: bankOptions?.bankName || 'NCBA, Kenya',
-    bankCode: bankOptions?.bankCode || '07000',
-    branch: bankOptions?.branch || 'Yaya Centre (Code-030)',
-    accountName: bankOptions?.accountName || 'Ladina Travel Safaris Ltd',
-    accountNumber: isUSD ? (bankOptions?.accountNumberUSD || '5213170028') : (bankOptions?.accountNumberKES || '5213170012'),
-    swiftCode: bankOptions?.swiftCode || 'CBAFKENX',
+    bankName: bankOptions?.bankName || '',
+    bankCode: bankOptions?.bankCode || '',
+    branch: bankOptions?.branch || '',
+    accountName: bankOptions?.accountName || '',
+    accountNumber: isUSD ? (bankOptions?.accountNumberUSD || '') : (bankOptions?.accountNumberKES || ''),
+    swiftCode: bankOptions?.swiftCode || '',
   };
 
   const categories = [...new Set(lineItems.map(item => item.category).filter(c => c && c.toLowerCase() !== 'other'))];

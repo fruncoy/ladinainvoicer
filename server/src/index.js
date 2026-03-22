@@ -2,6 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import { Client, Databases } from 'node-appwrite';
 import { loadStore, saveStore } from './store.js';
+import 'dotenv/config';
+
+// Load Cloud Settings from environment variables
+const CLOUD_SETTINGS = {
+  endpoint: process.env.VITE_APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1',
+  projectId: process.env.VITE_APPWRITE_PROJECT_ID || '69be7af8000af63ab779',
+  databaseId: process.env.VITE_APPWRITE_DATABASE_ID || 'default',
+  invoicesCollectionId: process.env.VITE_APPWRITE_INVOICES_COL_ID || 'invoices',
+  receiptsCollectionId: process.env.VITE_APPWRITE_RECEIPTS_COL_ID || 'receipts',
+  bankDetailsCollectionId: process.env.VITE_APPWRITE_BANK_COL_ID || 'bankDetails',
+  apiKey: process.env.APPWRITE_API_KEY,
+  browserlessToken: process.env.BROWSERLESS_TOKEN
+};
 
 const PORT = Number(process.env.PORT) || 3001;
 const app = express();
@@ -18,16 +31,35 @@ app.get('/api/health', (_req, res) => {
 
 app.get('/api/data', async (_req, res) => {
   const data = await loadStore();
+  const s = CLOUD_SETTINGS;
+
+  // Try to pull latest Bank Details from Appwrite if configured
+  if (s.endpoint && s.projectId && s.databaseId && s.bankDetailsCollectionId && s.apiKey) {
+    try {
+      const client = new Client().setEndpoint(s.endpoint).setProject(s.projectId).setKey(s.apiKey);
+      const databases = new Databases(client);
+      const doc = await databases.getDocument(s.databaseId, s.bankDetailsCollectionId, 'current');
+      if (doc) {
+        data.bankDetails = {
+          bankName: doc.bankName,
+          bankCode: doc.bankCode,
+          branch: doc.branch,
+          accountName: doc.accountName,
+          accountNumberUSD: doc.accountNumberUSD,
+          accountNumberKES: doc.accountNumberKES,
+          swiftCode: doc.swiftCode,
+        };
+        saveStore(data).catch(() => {});
+      }
+    } catch (e) {
+      console.log('Appwrite pull skipped:', e.message);
+    }
+  }
+
   const { settings, ...rest } = data;
   res.json({
     ...rest,
-    settings: {
-      endpoint: settings.endpoint,
-      projectId: settings.projectId,
-      databaseId: settings.databaseId,
-      invoicesCollectionId: settings.invoicesCollectionId,
-      receiptsCollectionId: settings.receiptsCollectionId,
-    },
+    settings: CLOUD_SETTINGS,
   });
 });
 
@@ -72,26 +104,29 @@ app.put('/api/bank-details', async (req, res) => {
     swiftCode: String(b.swiftCode || '').trim(),
   };
   await saveStore(data);
+
+  // Proactive sync to Appwrite if configured
+  const s = CLOUD_SETTINGS;
+  if (s.endpoint && s.projectId && s.databaseId && s.bankDetailsCollectionId && s.apiKey) {
+    try {
+      const client = new Client().setEndpoint(s.endpoint).setProject(s.projectId).setKey(s.apiKey);
+      const databases = new Databases(client);
+      try {
+        await databases.createDocument(s.databaseId, s.bankDetailsCollectionId, 'current', data.bankDetails);
+      } catch {
+        await databases.updateDocument(s.databaseId, s.bankDetailsCollectionId, 'current', data.bankDetails);
+      }
+    } catch (e) {
+      console.error('Bank details sync failed:', e.message);
+    }
+  }
+
   res.json({ ok: true });
 });
 
-// Settings API
+// Settings API - Simplified as settings are now in .env
 app.put('/api/settings', async (req, res) => {
-  const data = await loadStore();
-  const b = req.body || {};
-  data.settings = {
-    ...data.settings,
-    endpoint: String(b.endpoint ?? '').trim(),
-    projectId: String(b.projectId ?? '').trim(),
-    databaseId: String(b.databaseId ?? '').trim(),
-    invoicesCollectionId: String(b.invoicesCollectionId ?? '').trim(),
-    receiptsCollectionId: String(b.receiptsCollectionId ?? '').trim(),
-  };
-  if (typeof b.apiKey === 'string' && b.apiKey.trim()) {
-    data.settings.apiKey = b.apiKey.trim();
-  }
-  await saveStore(data);
-  res.json({ ok: true });
+  res.status(403).json({ error: 'Settings are now managed via environment variables (.env)' });
 });
 
 // Invoices API
@@ -151,12 +186,12 @@ app.post('/api/receipts/from-invoice/:invoiceId', async (req, res) => {
 // Sync
 app.post('/api/sync/appwrite', async (_req, res) => {
   const data = await loadStore();
-  const s = data.settings;
-  if (!s.endpoint || !s.projectId || !s.databaseId || !s.invoicesCollectionId || !s.receiptsCollectionId) {
-    return res.status(400).json({ error: 'Appwrite database/collection IDs incomplete' });
+  const s = CLOUD_SETTINGS;
+  if (!s.endpoint || !s.projectId || !s.databaseId || !s.invoicesCollectionId || !s.receiptsCollectionId || !s.bankDetailsCollectionId) {
+    return res.status(400).json({ error: 'Appwrite cloud environment variables incomplete' });
   }
   if (!s.apiKey) {
-    return res.status(400).json({ error: 'Server API key missing' });
+    return res.status(400).json({ error: 'APPWRITE_API_KEY environment variable missing' });
   }
   try {
     const client = new Client().setEndpoint(s.endpoint).setProject(s.projectId).setKey(s.apiKey);
@@ -174,6 +209,12 @@ app.post('/api/sync/appwrite', async (_req, res) => {
       } catch {
         await databases.updateDocument(s.databaseId, s.receiptsCollectionId, r.id, r);
       }
+    }
+    // Sync Bank Details
+    try {
+      await databases.createDocument(s.databaseId, s.bankDetailsCollectionId, 'current', data.bankDetails);
+    } catch {
+      await databases.updateDocument(s.databaseId, s.bankDetailsCollectionId, 'current', data.bankDetails);
     }
     res.json({ ok: true, at: new Date().toISOString() });
   } catch (e) {
@@ -207,9 +248,7 @@ app.post('/api/pdf', async (req, res) => {
   let browser;
   try {
     const puppeteer = (await import('puppeteer-core')).default;
-    
-    // Use BROWSERLESS_TOKEN from environment variables for security
-    const browserlessToken = process.env.BROWSERLESS_TOKEN;
+    const browserlessToken = CLOUD_SETTINGS.browserlessToken;
     
     if (browserlessToken) {
       // PRO SOLUTION: Connect to a remote browser (Browserless.io)
