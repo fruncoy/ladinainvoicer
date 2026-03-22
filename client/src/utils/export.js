@@ -1,3 +1,5 @@
+import { request } from '../api';
+
 export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
   const { invoiceNo, billedTo, date, currency, lineItems, total } = invoice;
   const isUSD = (currency || 'USD').toUpperCase() === 'USD';
@@ -257,18 +259,23 @@ export async function downloadInvoice(invoice, bankDetails) {
   } catch { /* logo optional */ }
 
   try {
-    const res = await fetch('/api/pdf', {
+    const data = await request('/api/pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ html, filename }),
+      responseType: 'blob'
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'PDF generation failed');
+    let blob;
+    if (typeof data === 'string') {
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      blob = new Blob([bytes], { type: 'application/pdf' });
+    } else {
+      blob = data;
     }
 
-    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -304,18 +311,23 @@ export async function downloadReceipt(invoice, receipt, bankDetails) {
   } catch { /* logo optional */ }
 
   try {
-    const res = await fetch('/api/pdf', {
+    const data = await request('/api/pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ html, filename }),
+      responseType: 'blob'
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'PDF generation failed');
+    let blob;
+    if (typeof data === 'string') {
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      blob = new Blob([bytes], { type: 'application/pdf' });
+    } else {
+      blob = data;
     }
 
-    const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
