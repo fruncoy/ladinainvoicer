@@ -38,7 +38,7 @@ export default function Invoices() {
   }
 
   const handleDownload = async (inv) => {
-    setDownloadingId(inv.id);
+    setDownloadingId(inv.$id);
     try {
       await downloadInvoice(inv, data?.bankDetails);
     } finally {
@@ -153,47 +153,32 @@ export default function Invoices() {
               </thead>
               <tbody>
                 {[...invoices].reverse().map((inv, idx) => (
-                  <tr key={inv.id} style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.2s' }}>
+                  <tr key={inv.$id} style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.2s' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold', background: 'var(--brand-soft)', color: 'var(--brand-dark)', textAlign: 'center', borderRight: '1px solid #eee' }}>{invoices.length - idx}</td>
                     <td style={{ padding: '1rem' }}>{inv.billedTo}</td>
                     <td style={{ padding: '1rem', fontWeight: '600' }}>{money(inv.total, inv.currency)}</td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', alignItems: 'center' }}>
-                        <button className="btn btn-sm" onClick={() => openEdit(inv.id)} style={{ fontSize: '0.8rem' }}>
+                      <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+                        <button className="btn btn-sm btn-ghost" onClick={() => openEdit(inv.$id)} style={{ fontSize: '0.8rem' }}>
                           Edit
                         </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => setPreviewHtml(previewInvoice(inv, data?.bankDetails))}
-                          style={{ fontSize: '0.8rem', background: '#f8f9fa', border: '1px solid #ddd' }}
+                        <button 
+                          className="btn btn-sm btn-ghost" 
+                          onClick={() => setPreviewHtml(previewInvoice(inv, data?.bankDetails))} 
+                          style={{ fontSize: '0.8rem' }}
                         >
                           Preview
                         </button>
-
                         <button 
-                          disabled={downloadingId === inv.id} 
+                          disabled={downloadingId === inv.$id} 
                           onClick={() => handleDownload(inv)} 
                           title="Download PDF"
-                          style={{ 
-                            cursor: downloadingId === inv.id ? 'not-allowed' : 'pointer', 
-                            background: '#f0fdf4', 
-                            border: '1px solid #bbf7d0', 
-                            borderRadius: '8px', 
-                            padding: '5px 12px', 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            color: '#16a34a', 
-                            opacity: downloadingId === inv.id ? 0.7 : 1,
-                            transition: 'all 0.2s ease',
-                            minWidth: downloadingId === inv.id ? '135px' : 'auto'
-                          }}
+                          className={`btn btn-pdf ${downloadingId === inv.$id ? 'loading' : ''}`}
+                          style={{ minWidth: downloadingId === inv.$id ? '135px' : 'auto', gap: '8px' }}
                         >
-                          {downloadingId === inv.id ? (
+                          {downloadingId === inv.$id ? (
                             <>
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-                              </svg>
+                              <span className="spinner"></span>
                               <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Downloading...</span>
                             </>
                           ) : (
@@ -201,11 +186,12 @@ export default function Invoices() {
                           )}
                         </button>
                         <button 
-                          disabled={busy === inv.id} 
-                          onClick={() => onDelete(inv.id)}
+                          disabled={busy === inv.$id} 
+                          onClick={() => onDelete(inv.$id)}
                           title="Delete"
-                          style={{ cursor: 'pointer', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '5px 8px', display: 'inline-flex', alignItems: 'center', color: '#dc2626', opacity: busy === inv.id ? 0.3 : 1 }}
+                          className={`btn btn-delete ${busy === inv.$id ? 'loading' : ''}`}
                         >
+                          {busy === inv.$id && <span className="spinner"></span>}
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         </button>
                       </div>

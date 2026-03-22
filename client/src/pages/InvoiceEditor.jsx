@@ -40,7 +40,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
       setBankDetails(d.bankDetails);
       
       if (invoiceId) {
-        const inv = d.invoices?.find((i) => i.id === invoiceId);
+        const inv = d.invoices?.find((i) => i.$id === invoiceId);
         if (!inv) {
           setErr('Invoice not found');
           return;
@@ -52,12 +52,19 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         setLineItems(inv.lineItems || []);
       } else {
         const lastNo = d.invoices?.[d.invoices.length - 1]?.invoiceNo;
-        if (lastNo && lastNo.includes('-')) {
-          const parts = lastNo.split('-');
-          const num = parseInt(parts[parts.length - 1]);
-          if (!isNaN(num)) {
-            setInvoiceNo(parts.slice(0, -1).join('-') + '-' + String(num + 1).padStart(3, '0'));
+        if (lastNo) {
+          // Look for the last sequence of digits in the string
+          const match = lastNo.match(/(\d+)(?!.*\d)/);
+          if (match) {
+            const numStr = match[0];
+            const nextNum = parseInt(numStr) + 1;
+            const nextNumStr = nextNum.toString().padStart(numStr.length, '0');
+            setInvoiceNo(lastNo.substring(0, match.index) + nextNumStr + lastNo.substring(match.index + numStr.length));
+          } else {
+            setInvoiceNo(lastNo + '-001');
           }
+        } else {
+          setInvoiceNo('INV-001');
         }
       }
     }).catch(e => {
@@ -146,6 +153,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         date,
         currency,
         lineItems,
+        total,
       });
       onSaved(saved);
     } catch (e) {
@@ -201,6 +209,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                     <option value="Transfers">Transfers</option>
                   </select>
                 </div>
+                {/* Invoice Number is now automatic and hidden from main form */}
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div style={{ flex: 1 }}>
                     <label>Bank Details</label>

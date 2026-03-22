@@ -32,7 +32,7 @@ export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
     `).join('');
 
   const isReceipt = options.isReceipt || false;
-  const docTitle = isReceipt ? `Receipt - ${options.receiptNo}` : `Invoice - ${invoiceNo}`;
+  const docTitle = isReceipt ? `Receipt - ${options.receiptNo}` : `Invoice`;
   const docHeading = isReceipt ? `OFFICIAL RECEIPT` : `INVOICE`;
 
   return `

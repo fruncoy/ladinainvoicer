@@ -46,8 +46,10 @@ export default async ({ req, res, log, error }) => {
         databases.getDocument(s.databaseId, s.bankDetailsCollectionId, 'current').catch(() => null)
       ]);
 
+      const mapDoc = (d) => ({ ...d, lineItems: typeof d.lineItems === 'string' ? JSON.parse(d.lineItems) : d.lineItems });
+
       return res.json({
-        invoices: invs.documents,
+        invoices: invs.documents.map(mapDoc),
         receipts: rcpts.documents,
         bankDetails: bank || {},
         clients: [], // Todo: add clients collection if needed
@@ -57,13 +59,24 @@ export default async ({ req, res, log, error }) => {
 
     // POST /invoices
     if (path === '/invoices' && req.method === 'POST') {
-      const body = req.body;
-      const id = body.id || `id_${Date.now()}`;
+      const { id: reqId, ...cleanBody } = req.body;
+      const id = reqId || `id_${Date.now()}`;
+      
+      // Remove all Appwrite systemic fields if they accidentally leaked in
+      Object.keys(cleanBody).forEach(key => {
+        if (key.startsWith('$')) delete cleanBody[key];
+      });
+
+      if (cleanBody.lineItems && typeof cleanBody.lineItems !== 'string') {
+        cleanBody.lineItems = JSON.stringify(cleanBody.lineItems);
+      }
+      
       try {
-        const doc = await databases.createDocument(s.databaseId, s.invoicesCollectionId, id, body);
+        const doc = await databases.createDocument(s.databaseId, s.invoicesCollectionId, id, cleanBody);
         return res.json(doc, 201, headers);
       } catch (e) {
-        const doc = await databases.updateDocument(s.databaseId, s.invoicesCollectionId, id, body);
+        log(`Create failed, attempting update: ${e.message}`);
+        const doc = await databases.updateDocument(s.databaseId, s.invoicesCollectionId, id, cleanBody);
         return res.json(doc, 200, headers);
       }
     }
@@ -79,31 +92,66 @@ export default async ({ req, res, log, error }) => {
       }
     }
 
+    // DELETE /invoices /:id
+    if (path.startsWith('/invoices/') && req.method === 'DELETE') {
+      const id = path.split('/').pop();
+      try {
+        await databases.deleteDocument(s.databaseId, s.invoicesCollectionId, id);
+        return res.json({ success: true }, 200, headers);
+      } catch (e) {
+        error(`Delete failed: ${e.message}`);
+        return res.json({ error: e.message }, 500, headers);
+      }
+    }
+
     // POST /pdf
     if (path === '/pdf' && req.method === 'POST') {
       const { html, filename } = req.body;
-      if (!html || !s.browserlessToken) throw new Error('HTML or Browserless Token missing');
+      try {
+        log('Importing puppeteer-core...');
+        const mod = await import('puppeteer-core');
+        const puppeteer = mod.default || mod;
+        
+        let browser;
+        try {
+          const tokenStr = String(s.browserlessToken || '');
+          const tokenDisplay = tokenStr ? tokenStr.substring(0, 5) : 'NONE';
+          log(`Connecting to Browserless: wss://chrome.browserless.io?token=${tokenDisplay}...`);
+          
+          browser = await puppeteer.connect({
+            browserWSEndpoint: `wss://chrome.browserless.io?token=${s.browserlessToken}`,
+          });
+          log('Browser connected');
+        } catch (e) {
+          error(`Connect error: ${e.message}`);
+          throw new Error(`PDF Error: Browserless connection failed (${e.message}). Check your token.`);
+        }
 
-      const puppeteer = (await import('puppeteer-core')).default;
-      const browser = await puppeteer.connect({
-        browserWSEndpoint: `wss://chrome.browserless.io?token=${s.browserlessToken}`,
-      });
+        const page = await browser.newPage();
+        log('Page created, setting content...');
+        // Using 'load' instead of 'networkidle0' because we inline most resources
+        await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
+        
+        log('Generating PDF...');
+        const pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '12mm', bottom: '12mm', left: '15mm', right: '15mm' },
+        });
+        
+        log('PDF OK');
+        await browser.disconnect();
 
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '12mm', bottom: '12mm', left: '15mm', right: '15mm' },
-      });
-      await browser.disconnect();
-
-      return res.send(Buffer.from(pdf).toString('base64'), 200, {
-        ...headers,
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
-        'X-Appwrite-Response-Format': 'base64'
-      });
+        return res.send(Buffer.from(pdf).toString('base64'), 200, {
+          ...headers,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
+          'X-Appwrite-Response-Format': 'base64'
+        });
+      } catch (e) {
+        error(`PDF Fatal: ${e.message}`);
+        throw e;
+      }
     }
 
     return res.json({ error: `Not Found: ${req.method} ${req.path}` }, 404, headers);
