@@ -7,13 +7,18 @@ export async function request(path, options = {}) {
   // If in production and we have a function ID, use Appwrite Functions directly
   if (import.meta.env.PROD && functionId) {
     try {
+      const headers = { ...options.headers };
+      if (options.body && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+
       const execution = await functions.createExecution(
         functionId,
         options.body || '',
         false, // async = false (wait for result)
         path,
         options.method || 'GET',
-        options.headers || {}
+        headers
       );
 
       let data;

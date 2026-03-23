@@ -1,56 +1,6 @@
 {
     "projectId": "69be7af8000af63ab779",
     "projectName": "Ladina Invoicer",
-    "databases": [
-        {
-            "$id": "default",
-            "name": "Ladina Database",
-            "collections": [
-                {
-                    "$id": "invoices",
-                    "name": "Invoices",
-                    "permissions": ["read(\"any\")", "create(\"users\")", "update(\"users\")", "delete(\"users\")"],
-                    "documentSecurity": true,
-                    "attributes": [
-                        { "key": "invoiceNo", "type": "string", "size": 100, "required": true },
-                        { "key": "billedTo", "type": "string", "size": 255, "required": true },
-                        { "key": "date", "type": "string", "size": 50, "required": true },
-                        { "key": "currency", "type": "string", "size": 10, "required": false, "default": "USD" },
-                        { "key": "total", "type": "double", "required": true },
-                        { "key": "status", "type": "string", "size": 50, "required": false, "default": "draft" },
-                        { "key": "lineItems", "type": "string", "size": 10000, "required": true }
-                    ]
-                },
-                {
-                    "$id": "receipts",
-                    "name": "Receipts",
-                    "permissions": ["read(\"any\")", "create(\"users\")"],
-                    "documentSecurity": true,
-                    "attributes": [
-                        { "key": "receiptNo", "type": "string", "size": 100, "required": true },
-                        { "key": "invoiceId", "type": "string", "size": 50, "required": true },
-                        { "key": "amount", "type": "double", "required": true },
-                        { "key": "date", "type": "string", "size": 50, "required": true }
-                    ]
-                },
-                {
-                    "$id": "bankDetails",
-                    "name": "Bank Details",
-                    "permissions": ["read(\"any\")", "create(\"users\")", "update(\"users\")", "delete(\"users\")"],
-                    "documentSecurity": true,
-                    "attributes": [
-                        { "key": "bankName", "type": "string", "size": 255, "required": true },
-                        { "key": "bankCode", "type": "string", "size": 100, "required": false },
-                        { "key": "branch", "type": "string", "size": 100, "required": false },
-                        { "key": "accountName", "type": "string", "size": 255, "required": true },
-                        { "key": "accountNumberUSD", "type": "string", "size": 100, "required": false },
-                        { "key": "accountNumberKES", "type": "string", "size": 100, "required": false },
-                        { "key": "swiftCode", "type": "string", "size": 50, "required": false }
-                    ]
-                }
-            ]
-        }
-    ],
     "functions": [
         {
             "$id": "pdf-generator",
@@ -59,7 +9,9 @@
             "path": "server",
             "entrypoint": "src/index.js",
             "commands": "npm install",
-            "execute": ["any"],
+            "execute": [
+                "any"
+            ],
             "events": []
         }
     ],
@@ -70,7 +22,161 @@
             "path": "client",
             "build": "npm install && npm run build",
             "publish": "dist",
-            "framework": "vite"
+            "framework": "vite",
+            "buildCommand": "index.html"
+        }
+    ],
+    "databases": [
+        {
+            "$id": "default",
+            "name": "Ladina Database",
+            "collections": [
+                {
+                    "$id": "invoices",
+                    "name": "Invoices",
+                    "permissions": [
+                        "read(\"any\")",
+                        "create(\"users\")",
+                        "update(\"users\")",
+                        "delete(\"users\")"
+                    ],
+                    "documentSecurity": true,
+                    "attributes": [
+                        {
+                            "key": "invoiceNo",
+                            "type": "string",
+                            "size": 100,
+                            "required": true
+                        },
+                        {
+                            "key": "billedTo",
+                            "type": "string",
+                            "size": 255,
+                            "required": true
+                        },
+                        {
+                            "key": "date",
+                            "type": "string",
+                            "size": 50,
+                            "required": true
+                        },
+                        {
+                            "key": "currency",
+                            "type": "string",
+                            "size": 10,
+                            "required": false,
+                            "default": "USD"
+                        },
+                        {
+                            "key": "total",
+                            "type": "double",
+                            "required": true
+                        },
+                        {
+                            "key": "status",
+                            "type": "string",
+                            "size": 50,
+                            "required": false,
+                            "default": "draft"
+                        },
+                        {
+                            "key": "lineItems",
+                            "type": "string",
+                            "size": 10000,
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "$id": "receipts",
+                    "name": "Receipts",
+                    "permissions": [
+                        "read(\"any\")",
+                        "create(\"users\")"
+                    ],
+                    "documentSecurity": true,
+                    "attributes": [
+                        {
+                            "key": "receiptNo",
+                            "type": "string",
+                            "size": 100,
+                            "required": true
+                        },
+                        {
+                            "key": "invoiceId",
+                            "type": "string",
+                            "size": 50,
+                            "required": true
+                        },
+                        {
+                            "key": "amount",
+                            "type": "double",
+                            "required": true
+                        },
+                        {
+                            "key": "date",
+                            "type": "string",
+                            "size": 50,
+                            "required": true
+                        }
+                    ]
+                },
+                {
+                    "$id": "bankDetails",
+                    "name": "Bank Details",
+                    "permissions": [
+                        "read(\"any\")",
+                        "create(\"users\")",
+                        "update(\"users\")",
+                        "delete(\"users\")"
+                    ],
+                    "documentSecurity": true,
+                    "attributes": [
+                        {
+                            "key": "bankName",
+                            "type": "string",
+                            "size": 255,
+                            "required": true
+                        },
+                        {
+                            "key": "bankCode",
+                            "type": "string",
+                            "size": 100,
+                            "required": false
+                        },
+                        {
+                            "key": "branch",
+                            "type": "string",
+                            "size": 100,
+                            "required": false
+                        },
+                        {
+                            "key": "accountName",
+                            "type": "string",
+                            "size": 255,
+                            "required": true
+                        },
+                        {
+                            "key": "accountNumberUSD",
+                            "type": "string",
+                            "size": 100,
+                            "required": false
+                        },
+                        {
+                            "key": "accountNumberKES",
+                            "type": "string",
+                            "size": 100,
+                            "required": false
+                        },
+                        {
+                            "key": "swiftCode",
+                            "type": "string",
+                            "size": 50,
+                            "required": false
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

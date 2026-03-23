@@ -38,6 +38,15 @@ export default async ({ req, res, log, error }) => {
     // ROUTING
     const path = req.path.replace('/api', '');
 
+    // Ensure body is an object (Appwrite functions might pass string if Content-Type missing)
+    if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {
+        log(`Failed to parse body string: ${e.message}`);
+      }
+    }
+
     // GET /data (The main dashboard load)
     if (path === '/data' && req.method === 'GET') {
       const [invs, rcpts, bank] = await Promise.all([
