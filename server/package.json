@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "prisma:generate": "prisma generate",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma db push"
   },
   "dependencies": {
     "cors": "^2.8.5",
