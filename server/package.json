@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/local-server.js"
+    "dev": "node --watch src/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
-    "node-appwrite": "^14.1.0",
+    "prisma": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "puppeteer-core": "^24.40.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

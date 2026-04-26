@@ -1,100 +1,54 @@
-# Ladina Invoicer — React + Node
+# Ladina Invoicer — React + Node + PostgreSQL
 
-Invoicing and receipts with a **React (Vite)** frontend and **Node (Express)** API. Data is stored in `server/data/store.json`. Optional **Appwrite** sync runs on the server with an API key (not bundled in the client).
+Invoicing and receipts with a **React (Vite)** frontend and **Node (Express)** API, powered by **Prisma** and **PostgreSQL**.
 
-## Run on localhost (easiest)
+## Run on localhost
 
-From the project root `Ladina Invoicer`:
+1.  **Prerequisites**:
+    *   Node.js 18+
+    *   PostgreSQL running locally or a connection string to a remote DB.
 
-```bash
-npm install
-cd server && npm install && cd ../client && npm install && cd ..
-npm run dev
-```
+2.  **Setup Environment**:
+    Create a `.env` file in the root directory:
+    ```env
+    PORT=3001
+    DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/ladina"
+    BROWSERLESS_TOKEN="your_browserless_token"
+    VITE_API_URL=http://localhost:3001
+    ```
 
-This starts **both** the API and the React app. Then:
+3.  **Install & Start**:
+    ```bash
+    npm install
+    npm run build
+    npm run dev
+    ```
 
-- **Open the app in your browser** at the URL Vite prints (usually **http://localhost:5173**).
-- The API runs at **http://localhost:3001** (Vite proxies `/api` there automatically).
+This starts **both** the API and the React app using `concurrently`.
 
-Check the API: [http://localhost:3001/api/health](http://localhost:3001/api/health) should return `{"ok":true}`.
+## Deployment (Railway)
 
-### Two terminals instead
+This project is optimized for [Railway](https://railway.app/).
 
-**Terminal 1 — API**
-
-```bash
-cd server
-npm run dev
-```
-
-**Terminal 2 — React**
-
-```bash
-cd client
-npm run dev
-```
-
-## Prerequisites
-
-- Node.js 18+
-
-## Install (first time only)
-
-```bash
-npm install
-cd server && npm install
-cd ../client && npm install
-```
-
-## Files you can delete
-
-| Path | Notes |
-|------|--------|
-| `client/dist/` | Production build output. Safe to delete anytime; recreate with `cd client && npm run build`. (Already in `client/.gitignore`.) |
-| `**/node_modules/` | Reinstall with `npm install` in each folder that has a `package.json`. |
-| `server/data/store.json` | **Only if you want to wipe all invoices/receipts/settings.** It is created when you first use the app. Keep `server/data/.gitkeep`. |
-
-Do **not** delete `server/src/`, `client/src/`, `package.json` files, or `vite.config.js` unless you know you don’t need them.
-
-## Build (production)
-
-```bash
-cd client
-npm run build
-```
-
-Serve `client/dist` with any static host, and point `VITE_API_URL` to your API origin, **or** run the API on the same host and configure your reverse proxy so `/api` hits Express.
-
-Example production env for the built client:
-
-```env
-VITE_API_URL=https://your-api.example.com
-```
+1.  **Connect GitHub**: Create a new project on Railway and link your repository.
+2.  **Add PostgreSQL**: Add a PostgreSQL plugin to your Railway project.
+3.  **Variables**: Add `DATABASE_URL` (linked to Postgres), `BROWSERLESS_TOKEN`, and `VITE_API_URL` (your app's public URL).
+4.  **Automatic Build**: Railway will use the `build` and `start` scripts in `package.json` to generate the Prisma client, run migrations, and start the server.
 
 ## API overview
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/data` | Invoices + receipts + settings (no API key returned) |
-| PUT | `/api/settings` | Save Appwrite settings; send `apiKey` only when changing it |
-| POST | `/api/invoices` | Create or update invoice (body includes optional `id`) |
+| GET | `/api/data` | Invoices + receipts + bank details |
+| POST | `/api/invoices` | Create or update invoice |
 | DELETE | `/api/invoices/:id` | Delete invoice |
 | POST | `/api/receipts/from-invoice/:invoiceId` | Create receipt, mark invoice paid |
-| POST | `/api/sync/appwrite` | Push all data to Appwrite (requires server API key) |
-
-## Appwrite
-
-1. Create a project and database; add collections `invoices` and `receipts` with attributes matching the JSON fields (or use flexible schema if available).
-2. Create an **API key** with permission to read/write those collections.
-3. In the app: **Appwrite Sync** → enter endpoint, project, database, collection IDs → **Save settings** → **Sync now**.
-
-The API key is stored only in `server/data/store.json` on your machine/server — never in the React build.
+| PUT | `/api/bank-details` | Update company bank info |
+| POST | `/api/pdf` | Generate PDF via Browserless |
 
 ## Project layout
 
 ```
-client/          Vite + React + React Router
-server/          Express API + JSON persistence
+client/          Vite + React (Frontend)
+server/          Express API + Prisma + PostgreSQL (Backend)
 ```

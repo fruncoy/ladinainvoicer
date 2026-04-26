@@ -1,172 +1,198 @@
-import { Client, Databases } from 'node-appwrite';
+import express from 'express';
+import cors from 'cors';
 import 'dotenv/config';
+import { PrismaClient } from '@prisma/client';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Load Cloud Settings
-const CLOUD_SETTINGS = {
-  endpoint: process.env.VITE_APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1',
-  projectId: process.env.VITE_APPWRITE_PROJECT_ID,
-  databaseId: process.env.VITE_APPWRITE_DATABASE_ID || 'default',
-  invoicesCollectionId: process.env.VITE_APPWRITE_INVOICES_COL_ID || 'invoices',
-  receiptsCollectionId: process.env.VITE_APPWRITE_RECEIPTS_COL_ID || 'receipts',
-  bankDetailsCollectionId: process.env.VITE_APPWRITE_BANK_COL_ID || 'bankDetails',
-  apiKey: process.env.APPWRITE_API_KEY,
-  browserlessToken: process.env.BROWSERLESS_TOKEN
-};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-export default async ({ req, res, log, error }) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-appwrite-project, x-appwrite-key',
-    'Access-Control-Max-Age': '86400',
-  };
+const prisma = new PrismaClient();
+const app = express();
+const port = process.env.PORT || 3001;
 
-  // Handle CORS Preflight
-  if (req.method === 'OPTIONS') {
-    return res.send('', 204, headers);
+app.use(cors());
+app.use(express.json());
+app.use(express.raw({ type: 'application/pdf' }));
+app.use(express.text({ type: 'text/html' }));
+
+// Serve static files from the React app in production
+const clientDistPath = join(__dirname, '../../client/dist');
+app.use(express.static(clientDistPath));
+
+// Helper for logging (matches Appwrite function signature if needed, but here we just use console)
+const log = console.log;
+const error = console.error;
+
+// GET /api/data
+app.get('/api/data', async (req, res) => {
+  try {
+    const [invoices, receipts, bankDetails] = await Promise.all([
+      prisma.invoice.findMany({ orderBy: { createdAt: 'desc' } }),
+      prisma.receipt.findMany({ orderBy: { createdAt: 'desc' } }),
+      prisma.bankDetails.findUnique({ where: { id: 'current' } })
+    ]);
+
+    res.json({
+      invoices,
+      receipts,
+      bankDetails: bankDetails || {},
+      clients: [],
+      settings: {
+        // We can keep this empty or remove it if frontend doesn't strictly need it
+        browserlessToken: process.env.BROWSERLESS_TOKEN
+      }
+    });
+  } catch (e) {
+    error('Error fetching data:', e);
+    res.status(500).json({ error: e.message });
   }
+});
 
-  const s = CLOUD_SETTINGS;
-  if (!s.apiKey || !s.projectId) {
-    return res.json({ error: 'Backend configuration missing (API Key or Project ID)' }, 500, headers);
+// POST /api/invoices
+app.post('/api/invoices', async (req, res) => {
+  const { id, ...cleanBody } = req.body;
+  
+  try {
+    const data = {
+      ...cleanBody,
+      lineItems: typeof cleanBody.lineItems === 'string' ? JSON.parse(cleanBody.lineItems) : cleanBody.lineItems
+    };
+
+    let result;
+    if (id) {
+      result = await prisma.invoice.upsert({
+        where: { id },
+        update: data,
+        create: { id, ...data },
+      });
+    } else {
+      result = await prisma.invoice.create({ data });
+    }
+    res.status(200).json(result);
+  } catch (e) {
+    error('Error saving invoice:', e);
+    res.status(500).json({ error: e.message });
   }
+});
 
-  const client = new Client().setEndpoint(s.endpoint).setProject(s.projectId).setKey(s.apiKey);
-  const databases = new Databases(client);
+// PUT /api/bank-details
+app.put('/api/bank-details', async (req, res) => {
+  try {
+    const result = await prisma.bankDetails.upsert({
+      where: { id: 'current' },
+      update: req.body,
+      create: { id: 'current', ...req.body },
+    });
+    res.status(200).json(result);
+  } catch (e) {
+    error('Error updating bank details:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/invoices/:id
+app.delete('/api/invoices/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.invoice.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (e) {
+    error('Error deleting invoice:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/receipts
+app.post('/api/receipts', async (req, res) => {
+  try {
+    const result = await prisma.receipt.create({ data: req.body });
+    res.status(201).json(result);
+  } catch (e) {
+    error('Error creating receipt:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/receipts/from-invoice/:invoiceId
+app.post('/api/receipts/from-invoice/:invoiceId', async (req, res) => {
+  const { invoiceId } = req.params;
+  try {
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const [receipt] = await prisma.$transaction([
+      prisma.receipt.create({
+        data: {
+          receiptNo: `REC-${invoice.invoiceNo}`,
+          invoiceId: invoice.id,
+          amount: invoice.total,
+          date: new Date().toISOString().split('T')[0],
+        }
+      }),
+      prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { status: 'paid' }
+      })
+    ]);
+
+    res.status(201).json(receipt);
+  } catch (e) {
+    error('Error generating receipt from invoice:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/pdf
+app.post('/api/pdf', async (req, res) => {
+  const { html, filename } = req.body;
+  const browserlessToken = process.env.BROWSERLESS_TOKEN;
+
+  if (!browserlessToken) {
+    return res.status(500).json({ error: 'BROWSERLESS_TOKEN is missing' });
+  }
 
   try {
-    // ROUTING
-    const path = req.path.replace('/api', '');
+    const mod = await import('puppeteer-core');
+    const puppeteer = mod.default || mod;
+    
+    const browser = await puppeteer.connect({
+      browserWSEndpoint: `wss://chrome.browserless.io?token=${browserlessToken}`,
+    });
 
-    // Ensure body is an object (Appwrite functions might pass string if Content-Type missing)
-    if (typeof req.body === 'string' && req.body.trim().startsWith('{')) {
-      try {
-        req.body = JSON.parse(req.body);
-      } catch (e) {
-        log(`Failed to parse body string: ${e.message}`);
-      }
-    }
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
+    
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '12mm', bottom: '12mm', left: '15mm', right: '15mm' },
+    });
+    
+    await browser.disconnect();
 
-    // GET /data (The main dashboard load)
-    if (path === '/data' && req.method === 'GET') {
-      const [invs, rcpts, bank] = await Promise.all([
-        databases.listDocuments(s.databaseId, s.invoicesCollectionId),
-        databases.listDocuments(s.databaseId, s.receiptsCollectionId),
-        databases.getDocument(s.databaseId, s.bankDetailsCollectionId, 'current').catch(() => null)
-      ]);
-
-      const mapDoc = (d) => ({ ...d, lineItems: typeof d.lineItems === 'string' ? JSON.parse(d.lineItems) : d.lineItems });
-
-      return res.json({
-        invoices: invs.documents.map(mapDoc),
-        receipts: rcpts.documents,
-        bankDetails: bank || {},
-        clients: [], // Todo: add clients collection if needed
-        settings: CLOUD_SETTINGS
-      }, 200, headers);
-    }
-
-    // POST /invoices
-    if (path === '/invoices' && req.method === 'POST') {
-      const { id: reqId, ...cleanBody } = req.body;
-      const id = reqId || `id_${Date.now()}`;
-      
-      // Remove all Appwrite systemic fields if they accidentally leaked in
-      Object.keys(cleanBody).forEach(key => {
-        if (key.startsWith('$')) delete cleanBody[key];
-      });
-
-      if (cleanBody.lineItems && typeof cleanBody.lineItems !== 'string') {
-        cleanBody.lineItems = JSON.stringify(cleanBody.lineItems);
-      }
-      
-      try {
-        const doc = await databases.createDocument(s.databaseId, s.invoicesCollectionId, id, cleanBody);
-        return res.json(doc, 201, headers);
-      } catch (e) {
-        log(`Create failed, attempting update: ${e.message}`);
-        const doc = await databases.updateDocument(s.databaseId, s.invoicesCollectionId, id, cleanBody);
-        return res.json(doc, 200, headers);
-      }
-    }
-
-    // PUT /bank-details
-    if (path === '/bank-details' && req.method === 'PUT') {
-      try {
-        const doc = await databases.updateDocument(s.databaseId, s.bankDetailsCollectionId, 'current', req.body);
-        return res.json(doc, 200, headers);
-      } catch {
-        const doc = await databases.createDocument(s.databaseId, s.bankDetailsCollectionId, 'current', req.body);
-        return res.json(doc, 201, headers);
-      }
-    }
-
-    // DELETE /invoices /:id
-    if (path.startsWith('/invoices/') && req.method === 'DELETE') {
-      const id = path.split('/').pop();
-      try {
-        await databases.deleteDocument(s.databaseId, s.invoicesCollectionId, id);
-        return res.json({ success: true }, 200, headers);
-      } catch (e) {
-        error(`Delete failed: ${e.message}`);
-        return res.json({ error: e.message }, 500, headers);
-      }
-    }
-
-    // POST /pdf
-    if (path === '/pdf' && req.method === 'POST') {
-      const { html, filename } = req.body;
-      try {
-        log('Importing puppeteer-core...');
-        const mod = await import('puppeteer-core');
-        const puppeteer = mod.default || mod;
-        
-        let browser;
-        try {
-          const tokenStr = String(s.browserlessToken || '');
-          const tokenDisplay = tokenStr ? tokenStr.substring(0, 5) : 'NONE';
-          log(`Connecting to Browserless: wss://chrome.browserless.io?token=${tokenDisplay}...`);
-          
-          browser = await puppeteer.connect({
-            browserWSEndpoint: `wss://chrome.browserless.io?token=${s.browserlessToken}`,
-          });
-          log('Browser connected');
-        } catch (e) {
-          error(`Connect error: ${e.message}`);
-          throw new Error(`PDF Error: Browserless connection failed (${e.message}). Check your token.`);
-        }
-
-        const page = await browser.newPage();
-        log('Page created, setting content...');
-        // Using 'load' instead of 'networkidle0' because we inline most resources
-        await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
-        
-        log('Generating PDF...');
-        const pdf = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: { top: '12mm', bottom: '12mm', left: '15mm', right: '15mm' },
-        });
-        
-        log('PDF OK');
-        await browser.disconnect();
-
-        return res.send(Buffer.from(pdf).toString('base64'), 200, {
-          ...headers,
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
-          'X-Appwrite-Response-Format': 'base64'
-        });
-      } catch (e) {
-        error(`PDF Fatal: ${e.message}`);
-        throw e;
-      }
-    }
-
-    return res.json({ error: `Not Found: ${req.method} ${req.path}` }, 404, headers);
-
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
+    });
+    res.send(Buffer.from(pdf));
   } catch (e) {
-    error(e.message);
-    return res.json({ error: e.message }, 500, headers);
+    error('PDF Error:', e);
+    res.status(500).json({ error: e.message });
   }
-};
+});
+
+// Fallback for SPA (React Router)
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Not Found' });
+  }
+  res.sendFile(join(clientDistPath, 'index.html'));
+});
+
+app.listen(port, () => {
+  log(`Server running on port ${port}`);
+});
+
+export default app;
