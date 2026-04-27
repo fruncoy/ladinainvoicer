@@ -13,17 +13,11 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
-app.use(express.raw({ type: 'application/pdf' }));
-app.use(express.text({ type: 'text/html' }));
+app.use(express.json({ limit: '50mb' })); // Increased limit for large HTML/PDF payloads
 
-// Serve static files from the React app in production
+// Serve static files from the React app
 const clientDistPath = join(__dirname, '../../client/dist');
 app.use(express.static(clientDistPath));
-
-// Helper for logging (matches Appwrite function signature if needed, but here we just use console)
-const log = console.log;
-const error = console.error;
 
 // GET /api/data
 app.get('/api/data', async (req, res) => {
@@ -35,17 +29,19 @@ app.get('/api/data', async (req, res) => {
     ]);
 
     res.json({
-      invoices,
+      invoices: invoices.map(inv => ({
+        ...inv,
+        lineItems: typeof inv.lineItems === 'string' ? JSON.parse(inv.lineItems) : inv.lineItems
+      })),
       receipts,
       bankDetails: bankDetails || {},
       clients: [],
       settings: {
-        // We can keep this empty or remove it if frontend doesn't strictly need it
         browserlessToken: process.env.BROWSERLESS_TOKEN
       }
     });
   } catch (e) {
-    error('Error fetching data:', e);
+    console.error('Error fetching data:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -53,11 +49,10 @@ app.get('/api/data', async (req, res) => {
 // POST /api/invoices
 app.post('/api/invoices', async (req, res) => {
   const { id, ...cleanBody } = req.body;
-  
   try {
     const data = {
       ...cleanBody,
-      lineItems: typeof cleanBody.lineItems === 'string' ? JSON.parse(cleanBody.lineItems) : cleanBody.lineItems
+      lineItems: typeof cleanBody.lineItems !== 'string' ? JSON.stringify(cleanBody.lineItems) : cleanBody.lineItems
     };
 
     let result;
@@ -72,7 +67,7 @@ app.post('/api/invoices', async (req, res) => {
     }
     res.status(200).json(result);
   } catch (e) {
-    error('Error saving invoice:', e);
+    console.error('Error saving invoice:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -87,7 +82,7 @@ app.put('/api/bank-details', async (req, res) => {
     });
     res.status(200).json(result);
   } catch (e) {
-    error('Error updating bank details:', e);
+    console.error('Error updating bank details:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -99,7 +94,7 @@ app.delete('/api/invoices/:id', async (req, res) => {
     await prisma.invoice.delete({ where: { id } });
     res.json({ success: true });
   } catch (e) {
-    error('Error deleting invoice:', e);
+    console.error('Error deleting invoice:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -110,36 +105,7 @@ app.post('/api/receipts', async (req, res) => {
     const result = await prisma.receipt.create({ data: req.body });
     res.status(201).json(result);
   } catch (e) {
-    error('Error creating receipt:', e);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// POST /api/receipts/from-invoice/:invoiceId
-app.post('/api/receipts/from-invoice/:invoiceId', async (req, res) => {
-  const { invoiceId } = req.params;
-  try {
-    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-
-    const [receipt] = await prisma.$transaction([
-      prisma.receipt.create({
-        data: {
-          receiptNo: `REC-${invoice.invoiceNo}`,
-          invoiceId: invoice.id,
-          amount: invoice.total,
-          date: new Date().toISOString().split('T')[0],
-        }
-      }),
-      prisma.invoice.update({
-        where: { id: invoiceId },
-        data: { status: 'paid' }
-      })
-    ]);
-
-    res.status(201).json(receipt);
-  } catch (e) {
-    error('Error generating receipt from invoice:', e);
+    console.error('Error creating receipt:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -150,6 +116,7 @@ app.post('/api/pdf', async (req, res) => {
   const browserlessToken = process.env.BROWSERLESS_TOKEN;
 
   if (!browserlessToken) {
+    console.error('BROWSERLESS_TOKEN is missing in environment variables');
     return res.status(500).json({ error: 'BROWSERLESS_TOKEN is missing' });
   }
 
@@ -157,13 +124,16 @@ app.post('/api/pdf', async (req, res) => {
     const mod = await import('puppeteer-core');
     const puppeteer = mod.default || mod;
     
+    console.log('Connecting to Browserless...');
     const browser = await puppeteer.connect({
       browserWSEndpoint: `wss://chrome.browserless.io?token=${browserlessToken}`,
     });
 
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'load', timeout: 20000 });
+    console.log('Setting content...');
+    await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
     
+    console.log('Generating PDF...');
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -172,13 +142,14 @@ app.post('/api/pdf', async (req, res) => {
     
     await browser.disconnect();
 
+    console.log('PDF Generated successfully');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
     });
     res.send(Buffer.from(pdf));
   } catch (e) {
-    error('PDF Error:', e);
+    console.error('PDF Generation Error:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -192,7 +163,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-  log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });
-
-export default app;
