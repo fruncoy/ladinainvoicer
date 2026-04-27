@@ -22,10 +22,11 @@ app.use(express.static(clientDistPath));
 // GET /api/data
 app.get('/api/data', async (req, res) => {
   try {
-    const [invoices, receipts, bankDetails] = await Promise.all([
+    const [invoices, receipts, bankDetails, clients] = await Promise.all([
       prisma.invoice.findMany({ orderBy: { createdAt: 'desc' } }),
       prisma.receipt.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.bankDetails.findUnique({ where: { id: 'current' } })
+      prisma.bankDetails.findUnique({ where: { id: 'current' } }),
+      prisma.client.findMany({ orderBy: { name: 'asc' } })
     ]);
 
     res.json({
@@ -35,13 +36,28 @@ app.get('/api/data', async (req, res) => {
       })),
       receipts,
       bankDetails: bankDetails || {},
-      clients: [],
+      clients: clients || [],
       settings: {
         browserlessToken: process.env.BROWSERLESS_TOKEN
       }
     });
   } catch (e) {
     console.error('Error fetching data:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/clients
+app.post('/api/clients', async (req, res) => {
+  try {
+    const { name, email, phone, address } = req.body;
+    const client = await prisma.client.upsert({
+      where: { name },
+      update: { email, phone, address },
+      create: { name, email, phone, address }
+    });
+    res.json(client);
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
@@ -54,6 +70,15 @@ app.post('/api/invoices', async (req, res) => {
       ...cleanBody,
       lineItems: typeof cleanBody.lineItems !== 'string' ? JSON.stringify(cleanBody.lineItems) : cleanBody.lineItems
     };
+
+    // Auto-save/update client
+    if (cleanBody.billedTo) {
+      await prisma.client.upsert({
+        where: { name: cleanBody.billedTo },
+        update: {},
+        create: { name: cleanBody.billedTo }
+      }).catch(err => console.error('Failed to auto-save client:', err));
+    }
 
     let result;
     if (id) {

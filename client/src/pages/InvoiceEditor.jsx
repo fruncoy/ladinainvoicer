@@ -27,6 +27,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
   const [itemName, setItemName] = useState('');
   const [itemDescription, setItemDescription] = useState('');
   const [itemAmount, setItemAmount] = useState('');
+  const [itemQty, setItemQty] = useState('1');
   const [itemFromDate, setItemFromDate] = useState('');
   const [itemToDate, setItemToDate] = useState('');
   const [editIdx, setEditIdx] = useState(null);
@@ -76,17 +77,22 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
     return () => { cancelled = true; };
   }, [invoiceId]);
 
-  const total = useMemo(() => lineItems.reduce((s, i) => s + Number(i.amount || 0), 0), [lineItems]);
+  const total = useMemo(() => lineItems.reduce((s, i) => s + (Number(i.qty || 1) * Number(i.amount || 0)), 0), [lineItems]);
 
   function addItem() {
     if (!itemName.trim() || !itemAmount || Number(itemAmount) <= 0) return alert('Enter name and valid amount');
+    
+    const qty = Number(itemQty) || 1;
+    const amount = Number(itemAmount);
     
     const itemData = { 
       id: editIdx !== null ? lineItems[editIdx].id : uid(), 
       category: itemCategory, 
       name: itemName.trim(), 
       description: itemDescription.trim(), 
-      amount: Number(itemAmount),
+      amount: amount,
+      qty: qty,
+      itemTotal: qty * amount,
       fromDate: itemFromDate,
       toDate: itemToDate
     };
@@ -100,7 +106,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
       setLineItems((prev) => [...prev, itemData]);
     }
 
-    setItemName(''); setItemDescription(''); setItemAmount(''); setItemFromDate(''); setItemToDate('');
+    setItemName(''); setItemDescription(''); setItemAmount(''); setItemQty('1'); setItemFromDate(''); setItemToDate('');
   }
 
   function editItem(idx) {
@@ -109,6 +115,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
     setItemName(it.name);
     setItemDescription(it.description);
     setItemAmount(it.amount);
+    setItemQty(it.qty || '1');
     setItemFromDate(it.fromDate || '');
     setItemToDate(it.toDate || '');
     setEditIdx(idx);
@@ -118,7 +125,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
   }
 
   function cancelEdit() {
-    setItemName(''); setItemDescription(''); setItemAmount(''); setItemFromDate(''); setItemToDate('');
+    setItemName(''); setItemDescription(''); setItemAmount(''); setItemQty('1'); setItemFromDate(''); setItemToDate('');
     setEditIdx(null);
   }
 
@@ -265,9 +272,15 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                     <label>Description / Details</label>
                     <input value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} placeholder="e.g. Full board, Land Cruiser with guide" />
                   </div>
-                  <div className="mobile-full-row">
-                    <label>Amount</label>
-                    <input type="number" value={itemAmount} onChange={(e) => setItemAmount(e.target.value)} placeholder="0.00" />
+                  <div className="mobile-full-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div>
+                      <label>Price</label>
+                      <input type="number" value={itemAmount} onChange={(e) => setItemAmount(e.target.value)} placeholder="0.00" />
+                    </div>
+                    <div>
+                      <label>Qty / Size</label>
+                      <input type="number" value={itemQty} onChange={(e) => setItemQty(e.target.value)} placeholder="1" />
+                    </div>
                   </div>
                   <div className="grid-2 mobile-full-row" style={{ gap: '0.5rem', gridColumn: 'span 1' }}>
                     <div>
@@ -297,29 +310,34 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                       <tr>
                         <th>Item Details</th>
                         <th className="right">Dates</th>
-                        <th className="right">Amount</th>
-                        <th></th>
+                        <th className="right">Price</th>
+                        <th className="right">Qty</th>
+                        <th className="right">Total</th>
+                        <th className="center">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {lineItems.map((it, idx) => (
                         <tr key={it.id}>
                           <td>
-                            <div style={{ fontWeight: 600 }}>{it.name}</div>
-                            <div className="muted line-item-desc-text" style={{ fontSize: '0.7rem' }}>{it.description}</div>
+                            <div style={{ fontWeight: 600, color: 'var(--brand)' }}>{it.name}</div>
+                            {it.description && <div className="muted" style={{ fontSize: '0.75rem' }}>{it.description}</div>}
+                            {it.category && <span style={{ fontSize: '0.65rem', background: 'var(--brand-soft)', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>{it.category}</span>}
                           </td>
-                          <td className="right small muted">
+                          <td className="right" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                             {it.fromDate && <div>{it.fromDate}</div>}
-                            {it.toDate && <div>to {it.toDate}</div>}
+                            {it.toDate && <div className="muted">to {it.toDate}</div>}
                           </td>
-                          <td className="right" style={{ fontWeight: 700 }}>{Number(it.amount).toFixed(2)}</td>
-                          <td className="right">
-                            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                              <button type="button" className="btn btn-sm" onClick={() => editItem(idx)} style={{ padding: '3px 10px', background: '#e2e8f0', color: '#334155', fontWeight: 600, fontSize: '0.75rem' }}>Edit</button>
-                              <button type="button" className="btn btn-sm" onClick={() => moveItem(idx, 'up')} disabled={idx === 0} style={{ padding: '2px 6px', background: '#f1f5f9', color: '#475569' }}>↑</button>
-                              <button type="button" className="btn btn-sm" onClick={() => moveItem(idx, 'down')} disabled={idx === lineItems.length - 1} style={{ padding: '2px 6px', background: '#f1f5f9', color: '#475569' }}>↓</button>
-                              <button type="button" className="btn btn-sm" onClick={() => duplicateItem(idx)} style={{ padding: '2px 8px', background: '#f1f5f9', color: 'var(--brand)' }} title="Duplicate">❐</button>
-                              <button type="button" className="btn btn-danger btn-sm" onClick={() => setLineItems(l => l.filter((_, i) => i !== idx))} style={{ padding: '2px 8px', fontSize: '1rem' }}>×</button>
+                          <td className="right" style={{ fontWeight: 500 }}>{money(it.amount, currency)}</td>
+                          <td className="right">{it.qty || 1}</td>
+                          <td className="right" style={{ fontWeight: 700, color: 'var(--brand)' }}>{money((it.qty || 1) * it.amount, currency)}</td>
+                          <td className="center">
+                            <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'center' }}>
+                              <button type="button" className="btn" style={{ padding: '4px', border: 'none' }} title="Edit" onClick={() => editItem(idx)}>✎</button>
+                              <button type="button" className="btn" style={{ padding: '4px', border: 'none' }} title="Duplicate" onClick={() => duplicateItem(idx)}>⎘</button>
+                              <button type="button" className="btn" style={{ padding: '4px', border: 'none' }} title="Move Up" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}>↑</button>
+                              <button type="button" className="btn" style={{ padding: '4px', border: 'none' }} title="Move Down" onClick={() => moveItem(idx, 'down')} disabled={idx === lineItems.length - 1}>↓</button>
+                              <button type="button" className="btn" style={{ padding: '4px', border: 'none', color: '#ef4444' }} title="Remove" onClick={() => setLineItems(l => l.filter((_, i) => i !== idx))}>×</button>
                             </div>
                           </td>
                         </tr>

@@ -31,4 +31,5 @@ export const api = {
   receiptFromInvoice: (invoiceId) =>
     request(`/api/receipts/from-invoice/${invoiceId}`, { method: 'POST' }),
   saveBankDetails: (body) => request('/api/bank-details', { method: 'PUT', body: JSON.stringify(body) }),
+  saveClient: (body) => request('/api/clients', { method: 'POST', body: JSON.stringify(body) }),
 };
