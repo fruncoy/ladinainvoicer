@@ -164,7 +164,7 @@ app.post('/api/pdf', async (req, res) => {
 
     const page = await browser.newPage();
     console.log('PDF: Setting content...');
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
     
     console.log('PDF: Generating binary...');
     const pdf = await page.pdf({

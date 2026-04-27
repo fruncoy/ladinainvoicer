@@ -41,7 +41,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
       setBankDetails(d.bankDetails);
       
       if (invoiceId) {
-        const inv = d.invoices?.find((i) => i.$id === invoiceId);
+        const inv = d.invoices?.find((i) => i.id === invoiceId);
         if (!inv) {
           setErr('Invoice not found');
           return;

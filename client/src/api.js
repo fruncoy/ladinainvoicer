@@ -7,7 +7,12 @@ export async function request(path, options = {}) {
   });
 
   if (options.responseType === 'blob') {
-    if (!res.ok) throw new Error(res.statusText);
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = res.statusText;
+      try { msg = JSON.parse(text).error || JSON.parse(text).details || msg; } catch {}
+      throw new Error(msg);
+    }
     return res.blob();
   }
 
