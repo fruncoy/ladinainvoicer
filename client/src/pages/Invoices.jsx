@@ -62,6 +62,7 @@ export default function Invoices() {
               invoiceId={editingId} 
               onClose={() => { setShowModal(false); setEditingId(null); }} 
               onSaved={() => { setShowModal(false); setEditingId(null); refresh(); }} 
+              onPreview={(html) => setPreviewHtml(html)}
             />
           </div>
         </div>

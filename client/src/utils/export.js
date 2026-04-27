@@ -19,18 +19,18 @@ export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
 
   const rows = lineItems.map((item, idx) => `
       <tr>
-        <td>${idx + 1}</td>
+        <td style="text-align: center;">${idx + 1}</td>
         <td class="item-description">
             <span class="client-name">${item.name || item.clientName || '—'}</span><br>
             <span class="details">${item.description || item.details || '—'}</span>
-        </td>
-        <td style="font-size: 8pt; color: #555;">
-            ${item.fromDate ? `${item.fromDate}<br>` : ''}
-            ${item.toDate ? `to ${item.toDate}` : ''}
-            ${(!item.fromDate && !item.toDate) ? '—' : ''}
+            ${(item.fromDate || item.toDate) ? `
+            <div style="margin-top: 4px; font-size: 8.5pt; color: #F48B29; font-weight: 600;">
+                ${item.fromDate ? `from ${item.fromDate} ` : ''}
+                ${item.toDate ? `to ${item.toDate}` : ''}
+            </div>` : ''}
         </td>
         <td>${Number(item.amount || 0).toFixed(2)}</td>
-        <td>${item.qty || 1}</td>
+        <td style="text-align: center;">${item.qty || 1}</td>
         <td>${Number((item.qty || 1) * (item.amount || 0)).toFixed(2)}</td>
       </tr>
     `).join('');
@@ -99,8 +99,8 @@ export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
         .invoice-table th { padding: 10px 12px; text-align: left; font-size: 9.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .invoice-table th:last-child { text-align: right; }
         .invoice-table td { padding: 10px 12px; border-bottom: 1px solid #ddd; font-size: 9.5pt; vertical-align: top; word-wrap: break-word; }
-        .invoice-table td:nth-child(4), .invoice-table td:nth-child(5), .invoice-table td:nth-child(6) { text-align: right; }
-        .invoice-table td:last-child { font-weight: 600; }
+        .invoice-table td:nth-child(3), .invoice-table td:nth-child(5) { text-align: right; }
+        .invoice-table td:last-child { font-weight: 600; text-align: right; }
         .invoice-table tbody tr:nth-child(even) { background: #f9f9f9; }
         .item-description .client-name { font-weight: 600; color: #2E7D32; }
         .item-description .details { color: #666; font-size: 9pt; }
@@ -160,12 +160,11 @@ ${serviceTypeHTML}
 <table class="invoice-table">
 <thead>
 <tr>
-<th style="width:7%">NO.</th>
-<th style="width:38%">DESCRIPTION</th>
-<th style="width:15%">DATES</th>
-<th style="width:15%">PRICE (${curSymbol})</th>
-<th style="width:10%">QTY</th>
-<th style="width:15%">TOTAL (${curSymbol})</th>
+<th style="width:7%; text-align: center;">NO.</th>
+<th style="width:48%">DESCRIPTION</th>
+<th style="width:15%; text-align: right;">PRICE (${curSymbol})</th>
+<th style="width:10%; text-align: center;">QTY</th>
+<th style="width:20%; text-align: right;">TOTAL (${curSymbol})</th>
 </tr>
 </thead>
 <tbody>
@@ -247,7 +246,8 @@ export function previewInvoice(invoice, bankDetails) {
 
 export async function downloadInvoice(invoice, bankDetails) {
   let html = generateInvoiceHTML(invoice, bankDetails);
-  const filename = `Invoice-${invoice.invoiceNo || 'export'}.pdf`;
+  const safeClient = (invoice.billedTo || 'Client').replace(/[/\\?%*:|"<>]/g, '-');
+  const filename = `Invoice-${safeClient}-${invoice.date}.pdf`;
 
   // Inline the logo as base64 so puppeteer can render it without network access
   try {
