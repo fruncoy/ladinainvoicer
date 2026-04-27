@@ -69,13 +69,48 @@ export default function Invoices() {
       )}
 
       {previewHtml && (
-        <div className="modal-overlay">
-          <div className="modal-content large">
-            <header className="modal-header">
-              <h3>Preview Invoice</h3>
-              <button className="btn" onClick={() => setPreviewHtml(null)}>×</button>
-            </header>
-            <div className="preview-body" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+        <div
+          onClick={() => setPreviewHtml(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 3000,
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'flex-start', padding: '1rem', gap: '1rem',
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexShrink: 0, width: '100%', justifyContent: 'center' }}>
+            <span style={{ color: '#fff', fontSize: '0.9rem', opacity: 0.8 }}>Preview Mode</span>
+            <button
+              onClick={() => setPreviewHtml(null)}
+              style={{ background: '#fff', border: 'none', borderRadius: '12px', padding: '8px 20px', fontWeight: 700, cursor: 'pointer', color: '#1a1a1a', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+            >
+              ✕ Close
+            </button>
+          </div>
+          <div
+            style={{
+              width: '210mm',
+              maxWidth: '100%',
+              transformOrigin: 'top center',
+              transform: window.innerWidth < 794 ? `scale(${(window.innerWidth - 32) / 794})` : 'none',
+              marginBottom: window.innerWidth < 794 ? `calc(297mm * ${(window.innerWidth - 32) / 794} - 297mm)` : '2rem',
+            }}
+          >
+            <iframe
+              onClick={(e) => e.stopPropagation()}
+              srcDoc={previewHtml}
+              style={{
+                width: '210mm',
+                minHeight: '297mm',
+                border: 'none',
+                borderRadius: '4px',
+                boxShadow: '0 30px 90px rgba(0,0,0,0.4)',
+                background: '#fff',
+                display: 'block',
+              }}
+              title="Invoice Preview"
+            />
           </div>
         </div>
       )}
