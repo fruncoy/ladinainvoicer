@@ -4,7 +4,6 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import puppeteer from 'puppeteer-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,7 +13,11 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Increased limit for large HTML/PDF payloads
+app.use(express.json({ limit: '50mb' }));
+
+// Logging for debugging
+console.log('Server starting...');
+console.log('BROWSERLESS_TOKEN length:', process.env.BROWSERLESS_TOKEN ? process.env.BROWSERLESS_TOKEN.length : 'MISSING');
 
 // Serve static files from the React app
 const clientDistPath = join(__dirname, '../../client/dist');
@@ -142,15 +145,18 @@ app.post('/api/pdf', async (req, res) => {
   const browserlessToken = process.env.BROWSERLESS_TOKEN;
 
   if (!browserlessToken) {
-    console.error('PDF ERROR: BROWSERLESS_TOKEN is missing in environment variables');
+    console.error('PDF ERROR: BROWSERLESS_TOKEN is missing');
     return res.status(500).json({ 
-      error: 'BROWSERLESS_TOKEN is missing. Please add it to Railway variables.',
-      details: 'Check your Railway dashboard -> Variables tab.'
+      error: 'BROWSERLESS_TOKEN is missing in Railway Variables.',
+      details: 'Please add BROWSERLESS_TOKEN to your Railway service variables.'
     });
   }
 
   let browser;
   try {
+    // Dynamic import for better ESM compatibility
+    const { default: puppeteer } = await import('puppeteer-core');
+    
     console.log('PDF: Connecting to Browserless...');
     browser = await puppeteer.connect({
       browserWSEndpoint: `wss://chrome.browserless.io?token=${browserlessToken}`,
@@ -180,8 +186,7 @@ app.post('/api/pdf', async (req, res) => {
     if (browser) await browser.disconnect().catch(() => {});
     res.status(500).json({ 
       error: 'Failed to generate PDF', 
-      details: e.message,
-      stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      details: e.message
     });
   }
 });
