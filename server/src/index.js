@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import puppeteer from 'puppeteer-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -141,24 +142,25 @@ app.post('/api/pdf', async (req, res) => {
   const browserlessToken = process.env.BROWSERLESS_TOKEN;
 
   if (!browserlessToken) {
-    console.error('BROWSERLESS_TOKEN is missing in environment variables');
-    return res.status(500).json({ error: 'BROWSERLESS_TOKEN is missing' });
+    console.error('PDF ERROR: BROWSERLESS_TOKEN is missing in environment variables');
+    return res.status(500).json({ 
+      error: 'BROWSERLESS_TOKEN is missing. Please add it to Railway variables.',
+      details: 'Check your Railway dashboard -> Variables tab.'
+    });
   }
 
+  let browser;
   try {
-    const mod = await import('puppeteer-core');
-    const puppeteer = mod.default || mod;
-    
-    console.log('Connecting to Browserless...');
-    const browser = await puppeteer.connect({
+    console.log('PDF: Connecting to Browserless...');
+    browser = await puppeteer.connect({
       browserWSEndpoint: `wss://chrome.browserless.io?token=${browserlessToken}`,
     });
 
     const page = await browser.newPage();
-    console.log('Setting content...');
-    await page.setContent(html, { waitUntil: 'load', timeout: 30000 });
+    console.log('PDF: Setting content...');
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
     
-    console.log('Generating PDF...');
+    console.log('PDF: Generating binary...');
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -167,15 +169,20 @@ app.post('/api/pdf', async (req, res) => {
     
     await browser.disconnect();
 
-    console.log('PDF Generated successfully');
+    console.log('PDF: Success');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename || 'invoice.pdf'}"`,
     });
     res.send(Buffer.from(pdf));
   } catch (e) {
-    console.error('PDF Generation Error:', e);
-    res.status(500).json({ error: e.message });
+    console.error('PDF ERROR details:', e);
+    if (browser) await browser.disconnect().catch(() => {});
+    res.status(500).json({ 
+      error: 'Failed to generate PDF', 
+      details: e.message,
+      stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+    });
   }
 });
 
