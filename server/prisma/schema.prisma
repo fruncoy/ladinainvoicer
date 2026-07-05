@@ -19,8 +19,6 @@ model Invoice {
   total           Float
   status          String   @default("draft")
   lineItems       Json     // Storing line items as JSON
-  bankAccountId   String?
-  bankAccount     BankAccount? @relation(fields: [bankAccountId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -35,18 +33,17 @@ model Receipt {
   updatedAt   DateTime @updatedAt
 }
 
-model BankAccount {
-  id             String   @id @default(cuid())
-  bankName       String
-  bankCode       String?
-  branch         String?
-  accountName    String
-  accountNumber  String
-  currency       String   @default("USD")
-  swiftCode      String?
-  isDefault      Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model BankDetails {
+  id               String   @id @default("current")
+  bankName         String
+  bankCode         String?
+  branch           String?
+  accountName      String
+  accountNumberUSD String?
+  accountNumberKES String?
+  swiftCode        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Client {
