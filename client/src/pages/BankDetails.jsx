@@ -218,14 +218,14 @@ export default function BankDetails() {
         ) : (
           bankAccounts.map(account => (
             <div 
-              key={account.id} 
-              className="card" 
-              style={{
-                padding: '2rem',
-                position: 'relative',
-                borderTop: `5px solid ${currencyColors[account.currency] || '#666'}'
-              }}
-            >
+                  key={account.id} 
+                  className="card" 
+                  style={{
+                    padding: '2rem',
+                    position: 'relative',
+                    borderTop: `5px solid ${currencyColors[account.currency] || '#666'}`
+                  }}
+                >
               {account.isDefault && (
                 <div style={{
                   position: 'absolute',
