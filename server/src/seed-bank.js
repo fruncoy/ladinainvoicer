@@ -6,6 +6,7 @@ async function main() {
   console.log('Starting bank accounts seed...');
 
   const bankData = [
+    // NCBA Accounts
     {
       bankName: 'NCBA, Kenya',
       bankCode: '07000',
@@ -24,6 +25,27 @@ async function main() {
       accountNumber: '5213170028',
       currency: 'USD',
       swiftCode: 'CBAFKENX',
+      isDefault: false
+    },
+    // KCB Accounts
+    {
+      bankName: 'KCB Bank',
+      bankCode: '01',
+      branch: 'Kitengela Acacia (Code-1359)',
+      accountName: 'LADINA TRAVEL SAFARIS LIMITED',
+      accountNumber: '1353027082',
+      currency: 'KES',
+      swiftCode: 'KCBLKENX',
+      isDefault: false
+    },
+    {
+      bankName: 'KCB Bank',
+      bankCode: '01',
+      branch: 'Kitengela Acacia (Code-1359)',
+      accountName: 'LADINA TRAVEL SAFARIS LIMITED',
+      accountNumber: '1353027015',
+      currency: 'USD',
+      swiftCode: 'KCBLKENX',
       isDefault: false
     }
   ];
