@@ -20,7 +20,8 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [currency, setCurrency] = useState('USD');
   const [lineItems, setLineItems] = useState([]);
-  const [bankDetails, setBankDetails] = useState(null);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState(null);
   const [clients, setClients] = useState([]);
   
   const [itemCategory, setItemCategory] = useState('');
@@ -38,7 +39,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
     api.getData().then(d => {
       if (cancelled) return;
       setClients(d.clients || []);
-      setBankDetails(d.bankDetails);
+      setBankAccounts(d.bankAccounts || []);
       
       if (invoiceId) {
         const inv = d.invoices?.find((i) => i.id === invoiceId);
@@ -51,6 +52,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         setDate(inv.date);
         setCurrency(inv.currency || 'USD');
         setLineItems(inv.lineItems || []);
+        setSelectedBankAccountId(inv.bankAccountId || null);
       } else {
         const lastNo = d.invoices?.[d.invoices.length - 1]?.invoiceNo;
         if (lastNo) {
@@ -66,6 +68,12 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
           }
         } else {
           setInvoiceNo('INV-001');
+        }
+        // Auto-select default bank account for new invoice
+        const defaultAccount = (d.bankAccounts || []).find(a => a.isDefault);
+        if (defaultAccount) {
+          setSelectedBankAccountId(defaultAccount.id);
+          setCurrency(defaultAccount.currency);
         }
       }
     }).catch(e => {
@@ -161,6 +169,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         currency,
         lineItems,
         total,
+        bankAccountId: selectedBankAccountId
       });
       onSaved(saved);
     } catch (e) {
@@ -216,15 +225,29 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                     <option value="Transfers">Transfers</option>
                   </select>
                 </div>
-                {/* Invoice Number is now automatic and hidden from main form */}
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <label>Bank Details</label>
-                    <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                      <option value="USD">USD Account</option>
-                      <option value="KES">KES Account</option>
-                    </select>
-                  </div>
+                <div>
+                  <label>Bank Account</label>
+                  <select 
+                    value={selectedBankAccountId || ''} 
+                    onChange={(e) => {
+                      const accountId = e.target.value;
+                      setSelectedBankAccountId(accountId);
+                      const account = bankAccounts.find(a => a.id === accountId);
+                      if (account) setCurrency(account.currency);
+                    }}
+                  >
+                    {bankAccounts.length === 0 ? (
+                      <option value="">No accounts set up</option>
+                    ) : (
+                      <>
+                        {bankAccounts.map(account => (
+                          <option key={account.id} value={account.id}>
+                            {account.bankName} ({account.currency}) {account.isDefault ? ' - Default' : ''}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
                 </div>
               </div>
             </div>
@@ -355,7 +378,19 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
           </div>
 
           <div className="btn-row" style={{ marginTop: '3rem', justifyContent: 'flex-end', gap: '1rem' }}>
-             <button type="button" className="btn" onClick={() => onPreview && onPreview(previewInvoice({ invoiceNo, billedTo, date, currency, lineItems, total }, bankDetails))} style={{ padding: '0.75rem 1.5rem' }}>Preview PDF</button>
+             <button 
+               type="button" 
+               className="btn" 
+               onClick={() => {
+                 const selectedAccount = bankAccounts.find(a => a.id === selectedBankAccountId);
+                 if (onPreview) {
+                   onPreview(previewInvoice({ invoiceNo, billedTo, date, currency, lineItems, total }, selectedAccount));
+                 }
+               }} 
+               style={{ padding: '0.75rem 1.5rem' }}
+             >
+               Preview PDF
+             </button>
              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={loading} style={{ padding: '0.75rem 2.5rem' }}>{loading ? 'Saving...' : 'Save Invoice'}</button>
           </div>
         </div>

@@ -2,15 +2,14 @@ import { request } from '../api';
 
 export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
   const { invoiceNo, billedTo, date, currency, lineItems, total } = invoice;
-  const isUSD = (currency || 'USD').toUpperCase() === 'USD';
-  const curSymbol = isUSD ? 'USD' : 'KES';
+  const curSymbol = currency || 'USD';
   
   const bank = {
     bankName: bankOptions?.bankName || '',
     bankCode: bankOptions?.bankCode || '',
     branch: bankOptions?.branch || '',
     accountName: bankOptions?.accountName || '',
-    accountNumber: isUSD ? (bankOptions?.accountNumberUSD || '') : (bankOptions?.accountNumberKES || ''),
+    accountNumber: bankOptions?.accountNumber || '',
     swiftCode: bankOptions?.swiftCode || '',
   };
 

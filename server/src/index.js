@@ -26,10 +26,13 @@ app.use(express.static(clientDistPath));
 // GET /api/data
 app.get('/api/data', async (req, res) => {
   try {
-    const [invoices, receipts, bankDetails, clients] = await Promise.all([
-      prisma.invoice.findMany({ orderBy: { createdAt: 'desc' } }),
+    const [invoices, receipts, bankAccounts, clients] = await Promise.all([
+      prisma.invoice.findMany({ 
+        orderBy: { createdAt: 'desc' },
+        include: { bankAccount: true }
+      }),
       prisma.receipt.findMany({ orderBy: { createdAt: 'desc' } }),
-      prisma.bankDetails.findUnique({ where: { id: 'current' } }),
+      prisma.bankAccount.findMany({ orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] }),
       prisma.client.findMany({ orderBy: { name: 'asc' } })
     ]);
 
@@ -39,7 +42,7 @@ app.get('/api/data', async (req, res) => {
         lineItems: typeof inv.lineItems === 'string' ? JSON.parse(inv.lineItems) : inv.lineItems
       })),
       receipts,
-      bankDetails: bankDetails || {},
+      bankAccounts: bankAccounts || [],
       clients: clients || [],
       settings: {
         browserlessToken: process.env.BROWSERLESS_TOKEN
@@ -101,17 +104,75 @@ app.post('/api/invoices', async (req, res) => {
   }
 });
 
-// PUT /api/bank-details
-app.put('/api/bank-details', async (req, res) => {
+// GET /api/bank-accounts
+app.get('/api/bank-accounts', async (req, res) => {
   try {
-    const result = await prisma.bankDetails.upsert({
-      where: { id: 'current' },
-      update: req.body,
-      create: { id: 'current', ...req.body },
+    const bankAccounts = await prisma.bankAccount.findMany({ 
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] 
+    });
+    res.json(bankAccounts);
+  } catch (e) {
+    console.error('Error fetching bank accounts:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/bank-accounts
+app.post('/api/bank-accounts', async (req, res) => {
+  try {
+    const { isDefault, ...data } = req.body;
+    
+    // If new account is default, unset others
+    if (isDefault) {
+      await prisma.bankAccount.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false }
+      });
+    }
+    
+    const result = await prisma.bankAccount.create({ 
+      data: { ...data, isDefault: isDefault || false } 
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    console.error('Error creating bank account:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/bank-accounts/:id
+app.put('/api/bank-accounts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isDefault, ...data } = req.body;
+    
+    // If updating to default, unset others
+    if (isDefault) {
+      await prisma.bankAccount.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false }
+      });
+    }
+    
+    const result = await prisma.bankAccount.update({ 
+      where: { id }, 
+      data: { ...data, isDefault: isDefault !== undefined ? isDefault : undefined }
     });
     res.status(200).json(result);
   } catch (e) {
-    console.error('Error updating bank details:', e);
+    console.error('Error updating bank account:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/bank-accounts/:id
+app.delete('/api/bank-accounts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.bankAccount.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error deleting bank account:', e);
     res.status(500).json({ error: e.message });
   }
 });

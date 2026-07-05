@@ -35,6 +35,9 @@ export const api = {
   deleteInvoice: (id) => request(`/api/invoices/${id}`, { method: 'DELETE' }),
   receiptFromInvoice: (invoiceId) =>
     request(`/api/receipts/from-invoice/${invoiceId}`, { method: 'POST' }),
-  saveBankDetails: (body) => request('/api/bank-details', { method: 'PUT', body: JSON.stringify(body) }),
+  getBankAccounts: () => request('/api/bank-accounts'),
+  createBankAccount: (body) => request('/api/bank-accounts', { method: 'POST', body: JSON.stringify(body) }),
+  updateBankAccount: (id, body) => request(`/api/bank-accounts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteBankAccount: (id) => request(`/api/bank-accounts/${id}`, { method: 'DELETE' }),
   saveClient: (body) => request('/api/clients', { method: 'POST', body: JSON.stringify(body) }),
 };

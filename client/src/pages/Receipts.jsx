@@ -28,7 +28,7 @@ export default function Receipts() {
     if (!inv) return alert("Invoice data missing");
     setDownloadingId(receipt.id);
     try {
-      await downloadReceipt(inv, receipt, data?.bankDetails);
+      await downloadReceipt(inv, receipt, inv.bankAccount);
     } finally {
       setDownloadingId(null);
     }
@@ -37,7 +37,7 @@ export default function Receipts() {
   const handlePreview = (receipt) => {
     const inv = data?.invoices?.find(i => i.id === receipt.invoiceId);
     if (!inv) return alert("Invoice data missing");
-    setPreviewHtml(previewReceipt(inv, receipt, data?.bankDetails));
+    setPreviewHtml(previewReceipt(inv, receipt, inv.bankAccount));
   };
 
   const handleGenerateReceipt = async () => {

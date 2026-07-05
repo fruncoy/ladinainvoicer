@@ -3,17 +3,19 @@ import { api } from '../api';
 
 export default function BankDetails() {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
-  const [bankDetails, setBankDetails] = useState({
+  const [formData, setFormData] = useState({
     bankName: '',
     bankCode: '',
     branch: '',
     accountName: '',
-    accountNumberUSD: '',
-    accountNumberKES: '',
+    accountNumber: '',
+    currency: 'USD',
     swiftCode: '',
+    isDefault: false
   });
 
   useEffect(() => {
@@ -23,61 +25,108 @@ export default function BankDetails() {
   async function loadData() {
     try {
       const data = await api.getData();
-      if (data.bankDetails) {
-        setBankDetails(data.bankDetails);
+      if (data.bankAccounts) {
+        setBankAccounts(data.bankAccounts);
       }
-    } catch (err) {
-      console.error('Failed to load bank details', err);
+    } catch (e) {
+      console.error('Failed to load bank accounts:', e);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSave(e) {
-    e.preventDefault();
-    setSaving(true);
-    setMessage('');
+  function handleAdd() {
+    setEditingId(null);
+    setFormData({
+      bankName: '',
+      bankCode: '',
+      branch: '',
+      accountName: '',
+      accountNumber: '',
+      currency: 'USD',
+      swiftCode: '',
+      isDefault: false
+    });
+    setShowForm(true);
+  }
+
+  function handleEdit(account) {
+    setEditingId(account.id);
+    setFormData({
+      bankName: account.bankName,
+      bankCode: account.bankCode || '',
+      branch: account.branch || '',
+      accountName: account.accountName,
+      accountNumber: account.accountNumber,
+      currency: account.currency,
+      swiftCode: account.swiftCode || '',
+      isDefault: account.isDefault
+    });
+    setShowForm(true);
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Are you sure you want to delete this bank account?')) return;
     try {
-      await api.saveBankDetails(bankDetails);
-      setEditing(false);
-      setMessage('✓ Bank details saved and synced to cloud!');
+      await api.deleteBankAccount(id);
+      setMessage('Account deleted successfully!');
       setTimeout(() => setMessage(''), 3000);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
+      loadData();
+    } catch (e) {
+      alert(e.message);
     }
   }
 
-  if (loading) return <div className="card">Loading bank details...</div>;
+  async function handleSubmit(e) {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await api.updateBankAccount(editingId, formData);
+      } else {
+        await api.createBankAccount(formData);
+      }
+      setShowForm(false);
+      setMessage('Account saved successfully!');
+      setTimeout(() => setMessage(''), 3000);
+      loadData();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  const currencyColors = {
+    USD: '#F48B29',
+    KES: '#3b82f6'
+  };
+
+  if (loading) return <div className="card">Loading bank accounts...</div>;
 
   return (
-    <div style={{ maxWidth: '1000px' }}>
+    <div style={{ maxWidth: '1200px' }}>
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: '600', color: '#111' }}>Payment Bank Accounts</h2>
-          <p className="muted">These are your official bank details used for all outgoing invoices.</p>
+          <p className="muted">Manage all your bank accounts for invoices</p>
         </div>
-        {!editing && (
-          <button className="btn btn-secondary" onClick={() => setEditing(true)}>Edit Details</button>
-        )}
+        <button className="btn btn-primary" onClick={handleAdd}>Add New Account</button>
       </header>
 
       {message && (
-        <div style={{ padding: '1rem', background: '#ecfdf5', color: '#059669', borderRadius: '8px', marginBottom: '2rem', fontWeight: '500' }}>
+        <div style={{ padding: '1rem', background: '#ecfdf5', color: '#059669', borderRadius: '8px', marginBottom: '2rem', fontWeight: '600' }}>
           {message}
         </div>
       )}
 
-      {editing ? (
-        <form onSubmit={handleSave} className="card" style={{ padding: '2.5rem' }}>
+      {showForm && (
+        <form onSubmit={handleSubmit} className="card" style={{ padding: '2.5rem', marginBottom: '2rem' }}>
+          <h3 style={{ marginBottom: '1.5rem', color: '#111' }}>{editingId ? 'Edit Bank Account' : 'Add New Bank Account'}</h3>
           <div className="grid-2" style={{ gap: '1.5rem', marginBottom: '2rem' }}>
             <div className="form-group">
-              <label>Bank Name</label>
+              <label>Bank Name *</label>
               <input 
                 type="text" 
-                value={bankDetails.bankName} 
-                onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})} 
+                value={formData.bankName} 
+                onChange={e => setFormData({...formData, bankName: e.target.value})} 
                 placeholder="e.g. NCBA, Kenya"
                 required
               />
@@ -86,8 +135,8 @@ export default function BankDetails() {
               <label>Bank Code</label>
               <input 
                 type="text" 
-                value={bankDetails.bankCode} 
-                onChange={e => setBankDetails({...bankDetails, bankCode: e.target.value})} 
+                value={formData.bankCode} 
+                onChange={e => setFormData({...formData, bankCode: e.target.value})} 
                 placeholder="e.g. 07000"
               />
             </div>
@@ -95,8 +144,8 @@ export default function BankDetails() {
               <label>Branch</label>
               <input 
                 type="text" 
-                value={bankDetails.branch} 
-                onChange={e => setBankDetails({...bankDetails, branch: e.target.value})} 
+                value={formData.branch} 
+                onChange={e => setFormData({...formData, branch: e.target.value})} 
                 placeholder="e.g. Yaya Centre"
               />
             </div>
@@ -104,108 +153,129 @@ export default function BankDetails() {
               <label>SWIFT Code</label>
               <input 
                 type="text" 
-                value={bankDetails.swiftCode} 
-                onChange={e => setBankDetails({...bankDetails, swiftCode: e.target.value})} 
+                value={formData.swiftCode} 
+                onChange={e => setFormData({...formData, swiftCode: e.target.value})} 
                 placeholder="e.g. CBAFKENX"
               />
             </div>
-            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-              <label>Account Name</label>
+            <div className="form-group">
+              <label>Currency *</label>
+              <select
+                value={formData.currency}
+                onChange={e => setFormData({...formData, currency: e.target.value})}
+              >
+                <option value="USD">USD (US Dollar)</option>
+                <option value="KES">KES (Kenyan Shilling)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Account Number *</label>
               <input 
                 type="text" 
-                value={bankDetails.accountName} 
-                onChange={e => setBankDetails({...bankDetails, accountName: e.target.value})} 
+                value={formData.accountNumber} 
+                onChange={e => setFormData({...formData, accountNumber: e.target.value})} 
+                required
+              />
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>Account Name *</label>
+              <input 
+                type="text" 
+                value={formData.accountName} 
+                onChange={e => setFormData({...formData, accountName: e.target.value})} 
                 placeholder="e.g. Ladina Travel Safaris Ltd"
                 required
               />
             </div>
-            <div className="form-group">
-              <label>USD Account Number</label>
-              <input 
-                type="text" 
-                value={bankDetails.accountNumberUSD} 
-                onChange={e => setBankDetails({...bankDetails, accountNumberUSD: e.target.value})} 
-              />
-            </div>
-            <div className="form-group">
-              <label>KES Account Number</label>
-              <input 
-                type="text" 
-                value={bankDetails.accountNumberKES} 
-                onChange={e => setBankDetails({...bankDetails, accountNumberKES: e.target.value})} 
-              />
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox"
+                  checked={formData.isDefault}
+                  onChange={e => setFormData({...formData, isDefault: e.target.checked})}
+                />
+                Set as default account
+              </label>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '1rem' }}>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+            <button type="submit" className="btn btn-primary">
+              {editingId ? 'Update Account' : 'Save Account'}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={() => { setEditing(false); loadData(); }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>
               Cancel
             </button>
           </div>
         </form>
-      ) : (
-        <div className="grid-2" style={{ gap: '2rem' }}>
-          {/* USD CARD */}
-          <div className="card" style={{ 
-            borderTop: '5px solid var(--accent)', 
-            background: '#fff',
-            boxShadow: '0 4px 12px rgba(244, 139, 41, 0.1)',
-            padding: '2.5rem'
-          }}>
-            <div style={{ marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#111' }}>Dollar Account (USD)</h3>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem', fontSize: '0.95rem' }}>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Name:</span><strong>{bankDetails.bankName || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Code:</span><strong>{bankDetails.bankCode || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Branch:</span><strong>{bankDetails.branch || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>SWIFT Code:</span><strong>{bankDetails.swiftCode || '---'}</strong></div>
-            </div>
-            
-            <div style={{ marginBottom: '2rem', padding: '1rem', background: '#fcfcfc', borderRadius: '8px' }}>
-              <span className="muted" style={{ fontSize: '0.9rem' }}>Account Name:</span><br/>
-              <strong style={{ fontSize: '1.1rem' }}>{bankDetails.accountName || '---'}</strong>
-            </div>
-
-            <div style={{ background: 'var(--accent)', color: 'white', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', opacity: 0.9 }}>Account Number</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 'bold', marginTop: '4px', letterSpacing: '1px' }}>{bankDetails.accountNumberUSD || 'N/A'}</div>
-            </div>
-          </div>
-
-          {/* KES CARD */}
-          <div className="card" style={{ 
-            borderTop: '5px solid #3b82f6', 
-            background: '#fff',
-            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.1)',
-            padding: '2.5rem'
-          }}>
-            <div style={{ marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.5rem', color: '#111' }}>Shilling Account (KES)</h3>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem', fontSize: '0.95rem' }}>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Name:</span><strong>{bankDetails.bankName || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Code:</span><strong>{bankDetails.bankCode || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Branch:</span><strong>{bankDetails.branch || '---'}</strong></div>
-              <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>SWIFT Code:</span><strong>{bankDetails.swiftCode || '---'}</strong></div>
-            </div>
-
-            <div style={{ marginBottom: '2rem', padding: '1rem', background: '#fcfcfc', borderRadius: '8px' }}>
-              <span className="muted" style={{ fontSize: '0.9rem' }}>Account Name:</span><br/>
-              <strong style={{ fontSize: '1.1rem' }}>{bankDetails.accountName || '---'}</strong>
-            </div>
-
-            <div style={{ background: '#3b82f6', color: 'white', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-              <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', opacity: 0.9 }}>Account Number</span>
-              <div style={{ fontSize: '1.75rem', fontWeight: 'bold', marginTop: '4px', letterSpacing: '1px' }}>{bankDetails.accountNumberKES || 'N/A'}</div>
-            </div>
-          </div>
-        </div>
       )}
+
+      <div style={{ display: 'grid', gap: '1.5rem' }}>
+        {bankAccounts.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            <p className="muted" style={{ marginBottom: '1rem' }}>No bank accounts yet</p>
+            <button className="btn btn-primary" onClick={handleAdd}>Add Your First Account</button>
+          </div>
+        ) : (
+          bankAccounts.map(account => (
+            <div 
+              key={account.id} 
+              className="card" 
+              style={{
+                padding: '2rem',
+                position: 'relative',
+                borderTop: `5px solid ${currencyColors[account.currency] || '#666'}'
+              }}
+            >
+              {account.isDefault && (
+                <div style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  background: '#2E7D32',
+                  color: 'white',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600'
+                }}>
+                  DEFAULT
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#111' }}>
+                    {account.bankName}
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.875rem', color: '#666', fontWeight: '400' }}>
+                      ({account.currency})
+                    </span>
+                  </h3>
+                  {account.branch && (
+                    <p className="muted" style={{ margin: '0.25rem 0 0 0' }}>{account.branch}</p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn btn-secondary" onClick={() => handleEdit(account)}>Edit</button>
+                  <button className="btn" onClick={() => handleDelete(account.id)}>Delete</button>
+                </div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.95rem' }}>
+                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Code:</span><strong>{account.bankCode || '—'}</strong></div>
+                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>SWIFT Code:</span><strong>{account.swiftCode || '—'}</strong></div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Account Name:</span><br/>
+                  <strong style={{ fontSize: '1.05rem' }}>{account.accountName}</strong>
+                </div>
+                <div style={{ gridColumn: 'span 2', marginTop: '0.5rem', padding: '1rem', background: '#f5f5f5', borderRadius: '8px' }}>
+                  <span className="muted" style={{ fontSize: '0.875rem' }}>Account Number:</span><br/>
+                  <strong style={{ fontSize: '1.5rem', letterSpacing: '1px' }}>{account.accountNumber}</strong>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
