@@ -11,16 +11,18 @@ datasource db {
 }
 
 model Invoice {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   invoiceNo       String
   billedTo        String
   date            String
-  currency        String   @default("USD")
+  currency        String        @default("USD")
   total           Float
-  status          String   @default("draft")
-  lineItems       Json     // Storing line items as JSON
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          String        @default("draft")
+  lineItems       Json          // Storing line items as JSON
+  bankAccountId   String?
+  bankAccount     BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model Receipt {
@@ -33,17 +35,21 @@ model Receipt {
   updatedAt   DateTime @updatedAt
 }
 
-model BankDetails {
-  id               String   @id @default("current")
-  bankName         String
-  bankCode         String?
-  branch           String?
-  accountName      String
-  accountNumberUSD String?
-  accountNumberKES String?
-  swiftCode        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model BankAccount {
+  id             String     @id @default(cuid())
+  bankName       String
+  bankCode       String?
+  branch         String?
+  accountName    String
+  accountNumber  String
+  currency       String     @default("USD")
+  swiftCode      String?
+  isDefault      Boolean    @default(false)
+  invoices       Invoice[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([accountNumber, currency])
 }
 
 model Client {

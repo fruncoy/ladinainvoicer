@@ -1,17 +1,24 @@
 import { request } from '../api';
 
-export function generateInvoiceHTML(invoice, bankOptions = {}, options = {}) {
+export function generateInvoiceHTML(invoice, bankOptions = [], options = {}) {
   const { invoiceNo, billedTo, date, currency, lineItems, total } = invoice;
   const curSymbol = currency || 'USD';
   
-  const bank = {
-    bankName: bankOptions?.bankName || '',
-    bankCode: bankOptions?.bankCode || '',
-    branch: bankOptions?.branch || '',
-    accountName: bankOptions?.accountName || '',
-    accountNumber: bankOptions?.accountNumber || '',
-    swiftCode: bankOptions?.swiftCode || '',
-  };
+  // Find matching bank account by currency, or use first one if none match
+  let bank = {};
+  if (Array.isArray(bankOptions) && bankOptions.length > 0) {
+    bank = bankOptions.find(b => b.currency === curSymbol) || bankOptions[0];
+  } else {
+    // Fallback to old object style
+    bank = {
+      bankName: bankOptions?.bankName || '',
+      bankCode: bankOptions?.bankCode || '',
+      branch: bankOptions?.branch || '',
+      accountName: bankOptions?.accountName || '',
+      accountNumber: bankOptions?.accountNumber || '',
+      swiftCode: bankOptions?.swiftCode || '',
+    };
+  }
 
   const categories = [...new Set(lineItems.map(item => item.category).filter(c => c && c.toLowerCase() !== 'other'))];
   const serviceTypeHTML = categories.length > 0 ? `<p style="margin-top: 8px;"><span class="label">SERVICE TYPE:</span> ${categories.join(' / ').toUpperCase()}</p>` : '';
