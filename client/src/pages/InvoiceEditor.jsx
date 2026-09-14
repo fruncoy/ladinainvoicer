@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { api } from '../api';
 import { previewInvoice } from '../utils/export';
 
@@ -23,6 +23,11 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
   const [bankAccounts, setBankAccounts] = useState([]);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState(null);
   const [clients, setClients] = useState([]);
+  const [draftId, setDraftId] = useState(invoiceId || null);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
+  const [draftStatus, setDraftStatus] = useState('draft');
+  const autoSaveTimer = useRef(null);
+  const isDirty = useRef(false);
   
   const [itemCategory, setItemCategory] = useState('');
   const [itemName, setItemName] = useState('');
@@ -53,8 +58,10 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         setCurrency(inv.currency || 'USD');
         setLineItems(inv.lineItems || []);
         setSelectedBankAccountId(inv.bankAccountId || null);
+        setDraftStatus(inv.status || 'draft');
+        if (inv.status === 'draft') setDraftSavedAt(new Date(inv.updatedAt));
       } else {
-        const lastNo = d.invoices?.[d.invoices.length - 1]?.invoiceNo;
+        const lastNo = d.invoices?.filter(i => i.status !== 'draft')?.[0]?.invoiceNo;
         if (lastNo) {
           // Look for the last sequence of digits in the string
           const match = lastNo.match(/(\d+)(?!.*\d)/);
@@ -86,6 +93,38 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
   }, [invoiceId]);
 
   const total = useMemo(() => lineItems.reduce((s, i) => s + (Number(i.qty || 1) * Number(i.amount || 0)), 0), [lineItems]);
+
+  const autoSaveDraft = useCallback(async (fields) => {
+    if (!fields.billedTo && !fields.lineItems?.length) return;
+    try {
+      const saved = await api.saveInvoice({
+        id: draftId || undefined,
+        invoiceNo: fields.invoiceNo || 'Draft',
+        billedTo: fields.billedTo || 'Draft',
+        date: fields.date,
+        currency: fields.currency,
+        lineItems: fields.lineItems,
+        total: fields.total,
+        bankAccountId: fields.selectedBankAccountId,
+        status: 'draft',
+      });
+      setDraftId(saved.id);
+      setDraftSavedAt(new Date());
+      isDirty.current = false;
+    } catch {}
+  }, [draftId]);
+
+  useEffect(() => {
+    if (loading) return;
+    isDirty.current = true;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      if (isDirty.current) {
+        autoSaveDraft({ invoiceNo, billedTo, date, currency, lineItems, total, selectedBankAccountId });
+      }
+    }, 10000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [invoiceNo, billedTo, date, currency, lineItems, selectedBankAccountId, autoSaveDraft]);
 
   function addItem() {
     if (!itemName.trim() || !itemAmount || Number(itemAmount) <= 0) return alert('Enter name and valid amount');
@@ -154,22 +193,39 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
     setLineItems(newList);
   }
 
+  const handleClose = () => {
+    clearTimeout(autoSaveTimer.current);
+    if (isDirty.current) {
+      autoSaveDraft({ invoiceNo, billedTo, date, currency, lineItems, total, selectedBankAccountId });
+    }
+    onClose();
+  };
+
+  const handleFirstChange = () => {
+    if (!isDirty.current && isNew && !draftId) {
+      isDirty.current = true;
+      autoSaveDraft({ invoiceNo, billedTo, date, currency, lineItems, total, selectedBankAccountId });
+    }
+  };
+
   const handleSave = async () => {
     if (!invoiceNo.trim() || !billedTo.trim() || !date || !lineItems.length) {
       alert('All fields and at least one item required.');
       return;
     }
     setLoading(true);
+    clearTimeout(autoSaveTimer.current);
     try {
       const saved = await api.saveInvoice({
-        id: invoiceId || undefined,
+        id: draftId || undefined,
         invoiceNo: invoiceNo.trim(),
         billedTo: billedTo.trim(),
         date,
         currency,
         lineItems,
         total,
-        bankAccountId: selectedBankAccountId
+        bankAccountId: selectedBankAccountId,
+        status: 'sent',
       });
       onSaved(saved);
     } catch (e) {
@@ -187,7 +243,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
       background: 'rgba(5, 46, 22, 0.4)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 2000, padding: '15px'
-    }} onClick={onClose}>
+    }} onClick={handleClose}>
       <section className="card" style={{ 
         maxWidth: '1000px', width: '100%', maxHeight: '95vh', overflowY: 'auto', padding: '0',
         background: '#fff', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
@@ -200,9 +256,16 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--brand)' }}>{isNew ? 'New Invoice' : 'Edit Invoice'}</h2>
-            <p className="muted" style={{ fontSize: '0.75rem' }}>{invoiceNo || 'Draft'}</p>
+            <p className="muted" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {invoiceNo || 'Draft'}
+              {draftSavedAt && draftStatus === 'draft' && (
+                <span style={{ background: '#fef9c3', color: '#854d0e', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid #fde68a' }}>
+                  Draft saved {draftSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </p>
           </div>
-          <button className="btn" onClick={onClose} style={{ border: 'none', background: '#f8fafc', width: '32px', height: '32px', borderRadius: '50%', padding: 0 }}>×</button>
+          <button className="btn" onClick={handleClose} style={{ border: 'none', background: '#f8fafc', width: '32px', height: '32px', borderRadius: '50%', padding: 0 }}>×</button>
         </header>
 
         <div style={{ padding: '2rem' }}>
@@ -264,7 +327,7 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                   <input 
                     list="clients-list" 
                     value={billedTo} 
-                    onChange={(e) => setBilledTo(e.target.value)} 
+                    onChange={(e) => { handleFirstChange(); setBilledTo(e.target.value); }} 
                     placeholder="Search or enter client name..." 
                   />
                   <datalist id="clients-list">
@@ -390,6 +453,14 @@ export default function InvoiceEditor({ invoiceId, onClose, onSaved, onPreview }
                style={{ padding: '0.75rem 1.5rem' }}
              >
                Preview PDF
+             </button>
+             <button
+               type="button"
+               className="btn"
+               onClick={() => autoSaveDraft({ invoiceNo, billedTo, date, currency, lineItems, total, selectedBankAccountId })}
+               style={{ padding: '0.75rem 1.5rem' }}
+             >
+               Save Draft
              </button>
              <button type="button" className="btn btn-primary" onClick={handleSave} disabled={loading} style={{ padding: '0.75rem 2.5rem' }}>{loading ? 'Saving...' : 'Save Invoice'}</button>
           </div>

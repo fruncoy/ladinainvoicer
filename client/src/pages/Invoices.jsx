@@ -52,6 +52,11 @@ export default function Invoices() {
   };
 
   const invoices = data?.invoices || [];
+  const sorted = [...invoices].sort((a, b) => {
+    if (a.status === 'draft' && b.status !== 'draft') return -1;
+    if (a.status !== 'draft' && b.status === 'draft') return 1;
+    return 0;
+  });
 
   return (
     <div className="container">
@@ -146,9 +151,14 @@ export default function Invoices() {
                 </tr>
               </thead>
               <tbody>
-                {[...invoices].reverse().map((inv, idx) => (
+                {sorted.map((inv) => (
                   <tr key={inv.id} style={{ borderBottom: '1px solid #f9f9f9', transition: 'background 0.2s' }}>
-                    <td style={{ padding: '1rem', fontWeight: 'bold', background: 'var(--brand-soft)', color: 'var(--brand-dark)', textAlign: 'center', borderRight: '1px solid #eee' }}>{invoices.length - idx}</td>
+                    <td style={{ padding: '1rem', fontWeight: 'bold', background: 'var(--brand-soft)', color: 'var(--brand-dark)', textAlign: 'center', borderRight: '1px solid #eee' }}>
+                      {inv.invoiceNo}
+                      {inv.status === 'draft' && (
+                        <span style={{ display: 'block', fontSize: '0.6rem', background: '#fef9c3', color: '#854d0e', borderRadius: '4px', padding: '1px 4px', marginTop: '2px', border: '1px solid #fde68a' }}>DRAFT</span>
+                      )}
+                    </td>
                     <td style={{ padding: '1rem' }}>{inv.billedTo}</td>
                     <td style={{ padding: '1rem', fontWeight: '600' }}>{money(inv.total, inv.currency)}</td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}>
