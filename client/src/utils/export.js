@@ -27,8 +27,8 @@ export function generateInvoiceHTML(invoice, bankOptions = [], options = {}) {
       <tr>
         <td style="text-align: center;">${idx + 1}</td>
         <td class="item-description">
-            <span class="client-name">${item.name || item.clientName || '—'}</span><br>
-            <span class="details">${item.description || item.details || '—'}</span>
+            <span class="client-name">${item.name || item.clientName || '-'}</span><br>
+            <span class="details">${item.description || item.details || '-'}</span>
             ${(item.fromDate || item.toDate) ? `
             <div style="margin-top: 4px; font-size: 8.5pt; color: #F48B29; font-weight: 600;">
                 ${item.fromDate ? `from ${item.fromDate} ` : ''}
@@ -379,8 +379,8 @@ export function generateLFInvoiceHTML(invoice, bankOptions = [], options = {}) {
       <tr>
         <td style="text-align: center;">${idx + 1}</td>
         <td class="item-description">
-            <span class="client-name">${item.name || item.clientName || '—'}</span><br>
-            <span class="details">${item.description || item.details || '—'}</span>
+            <span class="client-name">${item.name || item.clientName || '-'}</span><br>
+            <span class="details">${item.description || item.details || '-'}</span>
             ${(item.fromDate || item.toDate) ? `
             <div style="margin-top: 4px; font-size: 8.5pt; color: #F48B29; font-weight: 600;">
                 ${item.fromDate ? `from ${item.fromDate} ` : ''}

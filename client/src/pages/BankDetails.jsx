@@ -261,8 +261,8 @@ export default function BankDetails() {
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.95rem' }}>
-                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Code:</span><strong>{account.bankCode || '—'}</strong></div>
-                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>SWIFT Code:</span><strong>{account.swiftCode || '—'}</strong></div>
+                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Bank Code:</span><strong>{account.bankCode || '-'}</strong></div>
+                <div><span className="muted" style={{ display: 'block', marginBottom: '4px' }}>SWIFT Code:</span><strong>{account.swiftCode || '-'}</strong></div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <span className="muted" style={{ display: 'block', marginBottom: '4px' }}>Account Name:</span><br/>
                   <strong style={{ fontSize: '1.05rem' }}>{account.accountName}</strong>

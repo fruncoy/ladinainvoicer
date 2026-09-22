@@ -51,7 +51,7 @@ export default function LFInvoices() {
     setShowModal(true);
   };
 
-  // Only show LF (Ladina Freight) invoices — identified by LF- prefix
+  // Only show LF (Ladina Freight) invoices - identified by LF- prefix
   const invoices = (data?.invoices || []).filter(inv =>
     inv.invoiceNo?.toUpperCase().startsWith('LF-')
   );
@@ -126,7 +126,7 @@ export default function LFInvoices() {
       <header className="page-header">
         <div>
           <h1>LF Invoices</h1>
-          <p className="muted">Ladina Freight Solutions Limited — invoices</p>
+          <p className="muted">Ladina Freight Solutions Limited - invoices</p>
         </div>
         <button className="btn btn-primary" onClick={() => openEdit(null)}>+ New LF Invoice</button>
       </header>

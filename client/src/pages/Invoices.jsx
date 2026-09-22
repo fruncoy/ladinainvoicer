@@ -51,7 +51,7 @@ export default function Invoices() {
     setShowModal(true);
   };
 
-  // Exclude LF (Ladina Freight) invoices — those belong to /lfinvoices
+  // Exclude LF (Ladina Freight) invoices - those belong to /lfinvoices
   const invoices = (data?.invoices || []).filter(inv =>
     !inv.invoiceNo?.toUpperCase().startsWith('LF-')
   );
