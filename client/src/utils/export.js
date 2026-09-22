@@ -478,6 +478,8 @@ export function generateLFInvoiceHTML(invoice, bankOptions = [], options = {}) {
 <div class="company-info">
 <h1>LADINA FREIGHT SOLUTIONS LIMITED</h1>
 <p>Nairobi, Kenya</p>
+<p>Email: ladinafreightssolutionsltd@gmail.com</p>
+<p>Phone: 0720441997</p>
 </div>
 </div>
 <div class="invoice-title">
@@ -491,6 +493,8 @@ export function generateLFInvoiceHTML(invoice, bankOptions = [], options = {}) {
 <h3>PAY TO:</h3>
 <p><span class="label">LADINA FREIGHT SOLUTIONS LIMITED</span></p>
 <p>Nairobi, Kenya</p>
+<p>Email: ladinafreightssolutionsltd@gmail.com</p>
+<p>Phone: 0720441997</p>
 </div>
 <div class="billing-box">
 <h3>BILLED TO:</h3>
@@ -545,6 +549,7 @@ ${rows}
   <div class="footer">
   <p class="thank-you">Thank you for your business!</p>
   <p class="terms">Payment is required within 14 business days of invoice date.</p>
+  <p>Please send remittance confirmation to ladinafreightssolutionsltd@gmail.com</p>
   </div>
 </div>
 
