@@ -51,7 +51,10 @@ export default function LFInvoices() {
     setShowModal(true);
   };
 
-  const invoices = data?.invoices || [];
+  // Only show LF (Ladina Freight) invoices — identified by LF- prefix
+  const invoices = (data?.invoices || []).filter(inv =>
+    inv.invoiceNo?.toUpperCase().startsWith('LF-')
+  );
   const sorted = [...invoices].sort((a, b) => {
     if (a.status === 'draft' && b.status !== 'draft') return -1;
     if (a.status !== 'draft' && b.status === 'draft') return 1;
