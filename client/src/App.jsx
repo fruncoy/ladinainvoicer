@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
 import InvoiceEditor from './pages/InvoiceEditor';
+import LFInvoices from './pages/LFInvoices';
 import Receipts from './pages/Receipts';
 
 import BankDetails from './pages/BankDetails';
@@ -51,6 +52,15 @@ const router = createBrowserRouter([
           title: 'Edit invoice',
           subtitle: 'Update line items and save',
           headerActions: 'backInvoices',
+        },
+      },
+      {
+        path: 'lfinvoices',
+        element: <LFInvoices />,
+        handle: {
+          title: 'LF Invoices',
+          subtitle: 'Ladina Freight Solutions Limited',
+          headerActions: null,
         },
       },
       {

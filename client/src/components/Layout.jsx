@@ -4,8 +4,8 @@ import { Link, NavLink, Outlet, useMatches } from 'react-router-dom';
 const links = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/invoices', label: 'Invoices' },
+  { to: '/lfinvoices', label: 'LF Invoices' },
   { to: '/receipts', label: 'Receipts' },
-
   { to: '/bank-details', label: 'Bank Details' },
 ];
 
