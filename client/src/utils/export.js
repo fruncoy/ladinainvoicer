@@ -35,9 +35,9 @@ export function generateInvoiceHTML(invoice, bankOptions = [], options = {}) {
                 ${item.toDate ? `to ${item.toDate}` : ''}
             </div>` : ''}
         </td>
-        <td>${Number(item.amount || 0).toFixed(2)}</td>
+        <td>${Number(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td style="text-align: center;">${item.qty || 1}</td>
-        <td>${Number((item.qty || 1) * (item.amount || 0)).toFixed(2)}</td>
+        <td>${Number((item.qty || 1) * (item.amount || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>
     `).join('');
 
@@ -182,11 +182,11 @@ ${rows}
 <div class="summary-box">
 <div class="summary-row">
     <span class="label">Sub-Total:</span>
-    <span>${curSymbol} ${Number(total).toFixed(2)}</span>
+    <span>${curSymbol} ${Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 </div>
 <div class="summary-row total">
     <span class="label">TOTAL:</span>
-    <span>${curSymbol} ${Number(total).toFixed(2)}</span>
+    <span>${curSymbol} ${Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 </div>
 </div>
 </div>
@@ -387,9 +387,9 @@ export function generateLFInvoiceHTML(invoice, bankOptions = [], options = {}) {
                 ${item.toDate ? `to ${item.toDate}` : ''}
             </div>` : ''}
         </td>
-        <td>${Number(item.amount || 0).toFixed(2)}</td>
+        <td>${Number(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td style="text-align: center;">${item.qty || 1}</td>
-        <td>${Number((item.qty || 1) * (item.amount || 0)).toFixed(2)}</td>
+        <td>${Number((item.qty || 1) * (item.amount || 0)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
       </tr>
     `).join('');
 
@@ -520,11 +520,11 @@ ${rows}
 <div class="summary-box">
 <div class="summary-row">
     <span class="label">Sub-Total:</span>
-    <span>${curSymbol} ${Number(total).toFixed(2)}</span>
+    <span>${curSymbol} ${Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 </div>
 <div class="summary-row total">
     <span class="label">TOTAL:</span>
-    <span>${curSymbol} ${Number(total).toFixed(2)}</span>
+    <span>${curSymbol} ${Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 </div>
 </div>
 </div>
